@@ -6,9 +6,9 @@ AgentForge 是一个面向金融贷款 APP/H5 双渠道客服业务的企业级 
 
 ## 当前状态
 
-当前只完成了“第 0 步：项目交接与实施计划”，尚未创建业务代码、安装依赖或启动基础设施。
+当前已完成“第 1 步：产品愿景、用户角色、范围与成功标准”，尚未创建业务代码、安装依赖或启动基础设施。
 
-**当前暂停点：等待你阅读并确认规划；确认后只进入第 1 步。**
+**当前暂停点：等待你阅读并确认产品规格；确认后只进入第 2 步。**
 
 ## 不可变的五项核心技术目标
 
@@ -30,6 +30,9 @@ AgentForge 是一个面向金融贷款 APP/H5 双渠道客服业务的企业级 
 | [docs/development-roadmap.md](docs/development-roadmap.md) | 从规格到实现的分步实施路线 |
 | [docs/progress.md](docs/progress.md) | 当前进度、暂停点和下一步 |
 | [AGENTS.md](AGENTS.md) | 约束 Codex 每次只推进一个步骤 |
+| [specs/product/vision.md](specs/product/vision.md) | 产品愿景、业务范围、发布阶段和成功定义 |
+| [specs/product/user-stories.md](specs/product/user-stories.md) | 用户角色、P0/P1 用户故事和验收摘要 |
+| [specs/product/non-functional-requirements.md](specs/product/non-functional-requirements.md) | 性能、质量、安全、容量、恢复和上线指标 |
 
 ## 已确认的核心技术栈
 

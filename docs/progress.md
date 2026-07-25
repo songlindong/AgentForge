@@ -1,12 +1,12 @@
 # AgentForge 分步实施进度
 
-最后更新：2026-07-24
+最后更新：2026-07-25
 
 ## 当前状态
 
-**状态：第 0 步已按“金融智能客服业务 + 五项不可变技术目标 + 上线硬门禁”优化完成，等待用户确认。**
+**状态：第 1 步“产品愿景、用户角色、范围与成功标准”已完成，等待用户确认。**
 
-当前没有正在实现的业务步骤。下一候选步骤是“第 1 步：产品愿景、用户角色、范围与成功标准”，只有用户确认本次规划后才能开始。
+当前没有正在实现的业务步骤。下一候选步骤是“第 2 步：业务架构、安全模型与部署拓扑”，只有用户确认第 1 步后才能开始。
 
 ## 已完成
 
@@ -29,39 +29,53 @@
 - [x] 创建项目入口、项目上下文、实施路线和协作约束。
 - [x] 未创建业务代码，未安装依赖，未启动基础设施。
 
+### 第 1 步：产品愿景、用户角色、范围与成功标准
+
+- [x] 创建 `specs/product/vision.md`，明确一句话愿景、产品目标、APP/H5 渠道范围、P0/P1/P2 业务范围和发布阶段。
+- [x] 明确贷款咨询用户、人工客服、知识运营、Agent/Skill 运营、合规审计、租户/平台管理员和运维角色。
+- [x] 固定金融 Knowledge Base、MCP 动态数据和模型禁止行为的产品边界。
+- [x] 明确首批 Agent、Skill 及顺序/并行/条件/DAG/审批编排范围。
+- [x] 创建 `specs/product/user-stories.md`，定义 P0/P1 用户故事和验收摘要。
+- [x] 创建 `specs/product/non-functional-requirements.md`，定义可用性、延迟、容量、RAG、Agent/Skill、Memory、Gateway、沙箱、安全、可观测性和灾备指标。
+- [x] 固定 1000 条 SSE 连接、100 个活跃生成请求和 100 万向量的 GA 容量目标。
+- [x] 固定跨租户泄漏、严重金融幻觉、未授权 Agent/Skill 调用和严重沙箱失败数量为 0。
+- [x] 明确目标服务器资源不足时通过扩容或调整拓扑解决，不能删除发布指标。
+- [x] 未创建架构规格、接口契约、业务代码或基础设施。
+
 ## 需要你在继续前确认
 
-阅读以下文档后，确认这些内容是否符合你的理解：
+阅读以下第 1 步规格后，确认产品范围和指标是否符合要求：
 
-1. `README.md`：项目入口和协作节奏。
-2. `docs/project-context.md`：金融客服的业务角色、渠道、核心流程、数据边界、安全约束和服务器上线目标。
-3. `docs/development-roadmap.md`：从金融业务规格到服务器发布的后续 21 个步骤、五项目标映射及验收方法。
-4. `AGENTS.md`：为什么 Codex 不会自动跳到下一步。
+1. `specs/product/vision.md`：系统服务谁、做什么、不做什么和怎样分阶段发布。
+2. `specs/product/user-stories.md`：各角色需要完成的任务和 P0 验收摘要。
+3. `specs/product/non-functional-requirements.md`：正式发布必须达到的质量、性能、安全、容量和恢复指标。
 
-如果其中某个范围或技术选择需要调整，应先修改规划，再进入第 1 步。
+如果范围或指标需要调整，应先修改第 1 步规格，再进入第 2 步。
 
 ## 下一步（尚未开始）
 
-### 第 1 步：产品愿景、用户角色、范围与成功标准
+### 第 2 步：业务架构、安全模型与部署拓扑
 
 计划只创建：
 
 ```text
-specs/product/vision.md
-specs/product/user-stories.md
-specs/product/non-functional-requirements.md
+specs/architecture/system-context.md
+specs/architecture/container-view.md
+specs/architecture/data-flow.md
+specs/architecture/security-model.md
+specs/architecture/deployment-view.md
+specs/adr/ADR-*.md
 ```
 
 本步会讲清：
 
-- 首个可用版本优先支持哪些渠道与金融业务场景。
-- 贷款咨询用户、人工客服、运营、合规和运维各自要完成什么任务。
-- 脱敏数据首发版本与授权金融接口版本的边界。
-- 回答有据性、消息可靠性、响应速度、安全和可用性如何形成可测量指标。
-- Agent Runtime、Agent 编排、Skill、沙箱、LLM Gateway、Memory/Knowledge Base、高并发和百万级 RAG 分别采用什么上线指标。
-- 域名、服务器配置、模型来源、渠道账号和数据来源中有哪些待确认条件。
+- APP/H5、渠道接入、Kafka、Agent Runtime、Agent Orchestrator、Skill Registry、Memory、RAG、MCP、沙箱和 LLM Gateway 怎样协作。
+- 哪些调用同步执行，哪些通过事件异步执行。
+- 金融数据怎样分级，信任边界和权限检查放在哪里。
+- 1000 SSE、100 活跃生成和 100 万向量目标需要怎样的部署拓扑。
+- 本地、测试、性能和生产环境分别包含哪些组件。
 
-本步不会画服务架构、不会创建 Go/Python/Next.js 工程，也不会启动 Docker。
+本步不会创建 Go/Python/Next.js 工程，也不会启动 Docker。
 
 ## 决策记录摘要
 
@@ -78,6 +92,9 @@ specs/product/non-functional-requirements.md
 | 首发数据 | 虚构、合成或脱敏数据 | 未获授权前不连接真实征信、银行或资金方生产接口 |
 | 初期模型 | Fake LLM / 外部兼容 API | Ollama、vLLM 和微调逐步引入 |
 | 规模顺序 | 小数据正确性基线 → 阶梯扩容 | 正式发布前必须完成并通过约定并发级别和 100 万向量验证 |
+| GA 容量目标 | 1000 SSE 连接、100 活跃生成、100 万向量 | 第 2 步必须选择可以支撑目标的部署拓扑 |
+| GA 可用性 | ≥ 99.9% | 通过监控数据按月统计 |
+| 数据恢复 | RPO ≤ 1 小时，RTO ≤ 2 小时 | 必须通过备份恢复演练验证 |
 
 ## 进度更新规则
 
