@@ -24,11 +24,29 @@ AgentForge 是一个分阶段实施、可部署、可运营、可验证的企业
 
 | 核心目标 | 在金融客服中的落点 | 上线前必须具备的证据 |
 |---|---|---|
-| Agent Runtime 内核与调度 | 意图路由、Agent Registry、ReAct、DAG、Checkpoint、重试恢复、MCP 调度 | 确定性场景回放、状态机测试、中断恢复、权限和 Trace 记录 |
+| Agent Runtime、Agent 编排与 Skill 体系 | 运行上下文、Agent Registry、Router、Planner、ReAct、DAG、并行/条件编排、人工审批、Checkpoint、Skill Registry 与 MCP 调度 | 确定性场景回放、编排状态机、Skill 契约/版本/权限测试、中断恢复和 Trace 记录 |
 | 安全沙箱与隔离环境 | 隔离运行不可信代码、租户规则脚本、高风险本地工具和受限计算任务 | 逃逸、网络、文件、资源耗尽、超时和残留进程测试全部通过 |
 | 企业级 LLM Gateway | 统一模型协议、鉴权、租户配额、路由、SSE、重试、熔断、降级、计量 | 契约、故障注入、取消传播、路由/配额和 Token 计量测试 |
 | Memory 与 Knowledge Base | 分层会话记忆、摘要、结构化业务记忆、金融文档写入、混合检索、重排与引用 | 删除/过期/隔离测试、RAG 黄金集、引用正确性和备份恢复验证 |
 | 高并发 Gateway 与百万级 RAG | SSE 并发控制、背压、缓存、模型吞吐、100 万向量索引与检索优化 | 目标环境压测报告、容量边界、P95/错误率、Recall@K 和资源曲线 |
+
+### 2.1 Agent、编排、Skill 与 MCP 的关系
+
+```text
+Agent = 角色与目标 + 模型策略 + Memory + 可用 Skills + 权限与预算
+
+Skill = Manifest + 输入/输出 Schema + 版本 + 权限 + 依赖
+        + 超时/重试策略 + 实现类型 + 验收场景
+
+Agent 编排 = Router / Planner 根据任务，把 Agent 与 Skill 按顺序、并行、
+             条件、DAG、人工审批和恢复规则组合执行
+
+MCP = Skill 调用外部工具或业务系统时可采用的一种标准协议
+```
+
+Skill 不是一段简单 Prompt，也不等同于 MCP 工具。Skill 是 Agent 可以发现和组合的标准能力单元，其实现可以是 Prompt、RAG、MCP 工具、安全沙箱任务、确定性代码或多个能力组成的复合流程。
+
+金融客服首批 Skill 规划包括：金融知识问答、产品检索、利率查询、还款试算、合同解读、合规检查、审批状态查询和转人工。每个 Skill 都必须支持版本管理、租户权限、启用/停用、灰度发布、回滚、审计和独立测试。
 
 这五项必须遵循同一条证据链：
 
@@ -84,20 +102,26 @@ flowchart TD
     CH["APP / H5"] --> CA["渠道适配层"]
     CA --> NM["统一消息协议<br/>身份映射 / 会话绑定 / 幂等校验"]
     NM --> MQ["Kafka<br/>按 conversation_id 保证会话内有序"]
-    MQ --> AR["Agent Runtime<br/>意图识别 / 路由 / 状态机"]
-    AR --> RAG["金融知识库 RAG"]
-    AR --> MCP["MCP / 受控业务工具"]
+    MQ --> AR["Agent Runtime<br/>运行上下文 / 状态机 / 调度"]
+    AR --> AO["Agent Orchestrator<br/>Router / Planner / DAG / 审批 / 恢复"]
+    AO --> SK["Skill Registry<br/>发现 / 版本 / 权限 / 依赖"]
+    SK --> RAG["金融知识库 RAG"]
+    SK --> MCP["MCP / 受控业务工具"]
     MCP --> SB["安全沙箱<br/>隔离代码 / 规则脚本 / 高风险本地工具"]
-    AR --> LLM["LLM Gateway"]
-    AR --> HUMAN["转人工"]
+    SK --> LLM["LLM Gateway"]
+    AO --> MEM["Memory Service"]
+    AO --> HUMAN["转人工"]
     RAG --> RET["OpenSearch BM25 + Milvus 向量检索<br/>RRF + Cross-Encoder"]
     MCP --> MOCK["模拟产品 / 利率 / 额度 / 审批 / 还款接口"]
     SB --> EXEC["受限执行结果"]
     LLM --> MODEL["OpenAI 兼容 API / Ollama / vLLM"]
-    AR --> OUT["回复生成 / 合规检查 / 引用"]
+    MEM --> DATA["Redis / MySQL / Milvus"]
+    AO --> OUT["回复生成 / 合规检查 / 引用"]
     OUT --> CA
     OUT --> AUDIT["MySQL 审计 / Redis 状态"]
     AR --> OTEL["OpenTelemetry"]
+    AO --> OTEL
+    SK --> OTEL
     OTEL --> OBS["Prometheus / Grafana / Jaeger或Tempo / Loki"]
 ```
 
@@ -139,14 +163,15 @@ H5 用户提问
 ## 6. 要解决的核心问题
 
 - 如何把 APP、H5 的消息、身份、连接方式和回复格式转换为统一协议。
-- 如何实现可恢复、可回放、可观测的 Agent Runtime 状态机、DAG 调度、Checkpoint 和 MCP 执行。
+- 如何实现可恢复、可回放、可观测的 Agent Runtime，以及支持路由、规划、顺序/并行/条件、DAG、人工审批和恢复的 Agent 编排。
+- 如何建设可注册、发现、组合、版本化、授权、灰度、回滚和独立测试的 Skill 体系，并明确 Skill 与 MCP、RAG、Prompt、函数和沙箱任务的边界。
 - 如何让高风险工具和不可信任务在有资源、网络、文件和生命周期限制的沙箱中运行。
 - 如何建设具备统一协议、鉴权、配额、路由、熔断、降级、计量和 SSE 的企业级 LLM Gateway。
 - 如何通过 `message_id` 保证幂等，并通过 `conversation_id` 分区保证同一会话有序。
 - 如何让金融知识检索同时兼顾专业术语、数字条款、长合同、时效性和引用可追溯。
 - 如何构建可删除、可过期、可隔离的分层 Memory，并与 Knowledge Base 明确分工。
 - 如何在目标环境验证高并发 SSE、背压与容量边界，并完成 100 万向量的构建、更新、过滤、检索和效果评测。
-- 如何把产品推荐、还款计算、额度/征信/审批查询拆分为权限明确、可审计的 Agent 与 MCP 工具。
+- 如何把产品推荐、还款计算、额度/征信/审批查询拆分为权限明确、可组合、可版本化、可审计的 Agent、Skill 与 MCP 工具。
 - 如何让多轮会话、转人工、失败重试和任务恢复具有明确状态。
 - 如何防止提示词注入、越权查询、敏感信息泄露、错误金融承诺和无依据回答。
 - 如何记录 TTFT、回答时延、检索效果、工具成功率、人工介入率、Token 成本和完整调用链。
@@ -171,6 +196,7 @@ H5 用户提问
 |---|---|---|
 | 用户端与运营端 | Next.js、TypeScript、Tailwind CSS、shadcn/ui、React Flow | H5 客服、知识运营、会话/Agent 运行详情 |
 | 渠道与核心后端 | Go、Hertz、Eino | 渠道接入、统一消息、Gateway、Agent Runtime、高并发链路 |
+| Agent 编排与 Skill | Go 状态机/DAG、Eino、Agent Registry、Skill Registry、JSON Schema | Agent 路由与规划、Skill 发现/组合、版本、权限、依赖、Checkpoint 和恢复 |
 | RAG 与评测 | Python、FastAPI、FlagEmbedding、Cross-Encoder | 文档处理、Embedding、重排、黄金集评测 |
 | 关系与状态数据 | MySQL 8.0+、Redis | 用户/租户、产品元数据、会话、运行状态、幂等、缓存与配额 |
 | 异步与检索 | Kafka、Milvus、OpenSearch、MinIO | 消息和文档事件、向量、BM25、合同/制度原文 |
@@ -189,6 +215,7 @@ H5 用户提问
 - 日志和 Trace 禁止记录完整身份证号、手机号、银行卡号、Token 或原始征信内容。
 - 知识回答必须保存文档版本、chunk、检索分数和引用，方便审计与纠错。
 - 工具调用必须记录调用人、租户、用途、输入摘要、授权结果、响应状态和 trace_id。
+- Agent 与 Skill 定义必须记录版本、租户可见性、权限、依赖、发布状态和审计信息；禁用或回滚后不能继续调度旧版本。
 - 涉及用户隐私或高风险操作时，必须鉴权、确认、最小授权，并能转人工。
 - 不可信或高风险执行必须进入沙箱；沙箱默认禁网、非 root、只读根文件系统、限制 CPU/内存/PID/时长，并在任务结束后销毁。
 - 生产用户端默认显示“信息仅供参考，以金融机构正式结果为准”，且不能暴露管理端和基础组件端口。
@@ -213,7 +240,7 @@ H5 用户提问
 
 | 核心能力 | 正式发布的最低门禁 |
 |---|---|
-| Agent Runtime | 核心金融场景可确定性执行与回放；失败、超时、重试、中断恢复、Checkpoint 和权限测试通过 |
+| Agent Runtime / 编排 / Skill | 核心金融场景可确定性编排与回放；Agent/Skill 注册、发现、版本、权限、顺序/并行/条件/DAG、人工审批、预算、失败重试、Checkpoint 和中断恢复测试通过 |
 | 安全沙箱 | non-root、只读根目录、默认禁网、资源/PID/时长限制和任务销毁生效；严重逃逸与越权测试 0 失败 |
 | LLM Gateway | OpenAI 兼容契约、鉴权、配额、路由、SSE 取消、有限重试、熔断/降级、Token 与费用计量测试通过 |
 | Memory / Knowledge Base | 多租户隔离、记忆删除/过期、文档版本、混合检索、引用和备份恢复测试通过，RAG 指标达到既定基线 |
@@ -227,7 +254,7 @@ H5 用户提问
 
 SDD 负责定义“正确是什么”：金融业务规则、目标与非目标、契约、状态机、安全不变量、错误处理、SLO 和验收场景。
 
-Harness 负责验证“实现是否真的正确”：固定金融文档与问题集、Fake LLM、Mock MCP、渠道消息场景、RAG 评测、Agent 回放、越权测试、压测、Trace 和发布检查。
+Harness 负责验证“实现是否真的正确”：固定金融文档与问题集、Fake LLM、Mock MCP、Skill 契约与组合场景、Agent 编排回放、渠道消息场景、RAG 评测、越权测试、压测、Trace 和发布检查。
 
 ```text
 业务规格 → 实现 → 自动验证 → 结果说明 → 用户确认已看懂 → 下一步

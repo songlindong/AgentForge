@@ -18,7 +18,7 @@
 | Phase 0 | 金融业务规格与 Harness 地基 | 业务边界、契约、Fake/Mock、测试入口、本地环境 |
 | Phase 1 | 金融知识库 RAG 闭环 | 上传、解析、混合检索、重排、引用、评测 |
 | Phase 2 | 企业级 LLM Gateway 与双渠道消息链路 | 统一模型接口、鉴权配额、路由容错、APP/H5 接入 |
-| Phase 3 | 金融客服 Agent 与业务工具 | 意图路由、ReAct、MCP、DAG、Checkpoint、回放 |
+| Phase 3 | Agent Runtime、Agent 编排与 Skill | Registry、Router、Planner、ReAct、Skill、MCP、DAG、Checkpoint、回放 |
 | Phase 4 | Memory、安全沙箱、合规与用户界面 | 分层记忆、知识协同、隔离执行、权限、护栏、H5 与运营端 |
 | Phase 5 | 可观测性、性能与服务器发布 | Trace、质量门禁、高并发、百万向量、HTTPS、备份和回滚 |
 | Phase 6 | 生产验收与运维移交 | 架构基线、验收报告、Runbook、SLO/SLA 和审计材料 |
@@ -27,7 +27,7 @@
 
 | 不可变核心目标 | 主要建设步骤 | 上线硬门禁步骤 |
 |---|---|---|
-| Agent Runtime 内核与调度 | 第 11～12 步 | 第 18～20 步验证，第 20 步发布 |
+| Agent Runtime、Agent 编排与 Skill 体系 | 第 11～12 步 | 第 18～20 步验证，第 20 步发布 |
 | 安全沙箱与隔离环境 | 第 15 步 | 第 18 步安全门禁，第 20 步发布 |
 | 企业级 LLM Gateway | 第 9 步 | 第 18～20 步故障、压测与发布验证 |
 | Memory 与 Knowledge Base | 第 7～8、13 步 | 第 18～20 步效果、隔离、恢复与发布验证 |
@@ -39,7 +39,7 @@
 
 ### 第 0 步：金融智能客服项目交接与实施计划（本次）
 
-- 本步重点：明确系统面向金融贷款 APP/H5 双渠道客服业务，同时固定 Agent Runtime、安全沙箱、企业级 LLM Gateway、Memory/Knowledge Base、高并发与百万级 RAG 五项永久技术目标。
+- 本步重点：明确系统面向金融贷款 APP/H5 双渠道客服业务，同时固定 Agent Runtime/Agent 编排/Skill、安全沙箱、企业级 LLM Gateway、Memory/Knowledge Base、高并发与百万级 RAG 五项永久技术目标。
 - 交付物：`README.md`、`AGENTS.md`、`docs/project-context.md`、`docs/development-roadmap.md`、`docs/progress.md`。
 - 验收标准：文档同时覆盖金融业务主线和五项技术主线；五项能力都有建设步骤、验证证据和上线硬门禁；区分知识库内容与动态业务数据；明确不使用未授权的真实金融数据；仓库中没有业务代码。
 - 暂停点：等待你确认业务方向与发布边界。
@@ -53,7 +53,7 @@
 
 ### 第 2 步：业务架构、安全模型与部署拓扑
 
-- 本步重点：APP/H5 双渠道统一接入、金融知识与动态数据的边界、Agent Runtime/LLM Gateway/Memory/Knowledge Base/安全沙箱的职责，以及本地、测试、性能和生产环境关系。
+- 本步重点：APP/H5 双渠道统一接入、金融知识与动态数据的边界、Agent Runtime、Agent Orchestrator、Skill Registry、LLM Gateway、Memory/Knowledge Base 和安全沙箱的职责，以及本地、测试、性能和生产环境关系。
 - 交付物：系统上下文图、容器图、渠道消息流、RAG 数据流、Agent 调度流、沙箱执行流、安全模型、容量边界、服务器部署拓扑和首批 ADR。
 - 验收标准：能解释每个服务为何存在，Go/Python 如何分工，五项核心目标如何在架构中落位，为什么使用 MySQL/Milvus/OpenSearch，以及哪些端口和服务允许对外暴露。
 - 暂停点：不创建服务实现，不购买服务器或域名。
@@ -61,7 +61,7 @@
 ### 第 3 步：统一消息、API、工具和事件契约
 
 - 本步重点：OpenAPI、JSON Schema、AsyncAPI 和 Gherkin 在金融客服链路中的分工。
-- 交付物：统一渠道消息模型、Chat/SSE API、渠道回调契约、LLM Provider 契约、Agent 运行事件、Memory/知识事件、沙箱任务契约、MCP 工具参数和 Given/When/Then 验收场景。
+- 交付物：统一渠道消息模型、Chat/SSE API、渠道回调契约、LLM Provider 契约、Agent/编排运行事件、Skill Manifest 与输入输出 Schema、Memory/知识事件、沙箱任务契约、MCP 工具参数和 Given/When/Then 验收场景。
 - 验收标准：明确 `message_id`、`conversation_id`、`tenant_id`、`trace_id`、错误码、幂等、有序、重试、授权和版本策略；契约可被工具校验。
 - 暂停点：只覆盖首条最小闭环，不一次定义所有接口。
 
@@ -82,8 +82,8 @@
 ### 第 6 步：金融客服 Harness
 
 - 本步重点：为什么 AI 客服的核心验证不能依赖真实模型随机输出或真实资金方接口。
-- 交付物：Fake LLM；模拟产品、利率、额度、审批、还款计算的 Mock MCP；固定金融文档和渠道消息；Agent 回放场景；沙箱攻击样例；网关并发与百万向量数据生成器。
-- 验收标准：固定响应、SSE、延迟、429/5xx、超时、断流、无效 JSON、工具失败、重复消息、越权访问、资源耗尽和沙箱违规都能稳定触发并复现。
+- 交付物：Fake LLM；Mock MCP；固定金融文档和渠道消息；Skill Registry/版本/权限/依赖样例；Agent 顺序、并行、条件、DAG、审批和恢复回放场景；沙箱攻击样例；网关并发与百万向量数据生成器。
+- 验收标准：固定响应、SSE、延迟、429/5xx、超时、断流、无效 JSON、Skill 不兼容/禁用/越权/依赖失败、编排恢复、重复消息、资源耗尽和沙箱违规都能稳定触发并复现。
 - 暂停点：不接真实模型和真实金融接口。
 
 ### 第 7 步：金融知识库写入闭环
@@ -114,18 +114,18 @@
 - 验收标准：重复消息只处理一次；同一 `conversation_id` 有序；不同会话并行；失败按类型重试；回答返回正确渠道；全链路状态可追踪。
 - 暂停点：先完成 H5 并通过验收，再接入 APP；不扩展其他渠道。
 
-### 第 11 步：金融客服 Agent Runtime 与意图路由
+### 第 11 步：Agent Runtime 内核、Agent 编排与 Skill Registry
 
-- 本步重点：Agent loop、状态机、意图识别、路由、终止条件、错误分类和确定性回放。
-- 交付物：KnowledgeAgent、ProductAgent、ContractAgent 和 ComplianceAgent 的最小实现，支持 Think/Act/Observe、步数限制和运行事件。
-- 验收标准：产品咨询、合同解读、合规问答和未知意图能路由到正确能力；模型/检索失败和超步数场景均可回放；不存在无限循环。
-- 暂停点：先做单会话内的受控编排，不做复杂 Multi-Agent 自主协作。
+- 本步重点：运行上下文、Agent loop、状态机、Agent Registry、Router、Planner、Orchestrator、Skill Registry、终止条件、预算和确定性回放。
+- 交付物：KnowledgeAgent、ProductAgent、ContractAgent 和 ComplianceAgent；支持 Agent/Skill 注册发现、顺序/并行/条件编排、步数/时间/Token预算、人工审批和运行事件。
+- 验收标准：业务意图路由到正确 Agent；Agent 只能发现有权限且版本兼容的 Skill；顺序、并行、条件和审批节点按规格执行；失败和超预算场景可回放；不存在无限循环。
+- 暂停点：先完成受控编排内核和确定性 Agent，不扩展无边界的自主 Multi-Agent 协作。
 
-### 第 12 步：金融 MCP 工具、DAG 与 Checkpoint
+### 第 12 步：金融 Skill、MCP、DAG 与 Checkpoint
 
-- 本步重点：MCP 与普通 Function Calling/REST 的区别、动态数据边界、DAG 调度、幂等、授权和中断恢复。
-- 交付物：模拟产品查询、利率查询、额度/审批查询、还款计算工具；任务 DAG、Checkpoint、失败重试与恢复。
-- 验收标准：例如“推荐经营贷并计算 36 期还款”能按依赖顺序执行；动态值只来自工具；越权调用被拒绝；进程中断后能从合法检查点继续。
+- 本步重点：Skill 与 Prompt、函数、RAG、MCP、复合流程的边界，以及 Manifest、Schema、版本、权限、依赖、幂等、DAG、灰度、回滚和中断恢复。
+- 交付物：金融知识问答、产品检索、利率查询、额度/审批查询、还款试算、合同解读、合规检查和转人工 Skill；对应 MCP/Mock 实现；Skill DAG、Checkpoint、发布和回滚机制。
+- 验收标准：Skill 可独立测试、启停、版本升级和回滚；复合任务能按依赖执行；动态值只来自授权工具；禁用、越权和不兼容版本被拒绝；进程中断后从合法 Checkpoint 继续。
 - 暂停点：全部使用 Mock 或合法测试接口，不连接真实征信/资金方生产环境。
 
 ### 第 13 步：会话 Memory、上下文控制与转人工
@@ -166,7 +166,7 @@
 ### 第 18 步：端到端可观测性与五项目标质量门禁
 
 - 本步重点：日志、指标、Trace、SLO、告警以及五项核心目标的统一发布证据。
-- 交付物：OpenTelemetry 贯通渠道 → Kafka → Runtime → Memory/RAG → LLM Gateway/MCP/Sandbox → 回传；Grafana 面板、告警和 CI 门禁。
+- 交付物：OpenTelemetry 贯通渠道 → Kafka → Runtime/Orchestrator → Agent/Skill → Memory/RAG → LLM Gateway/MCP/Sandbox → 回传；Grafana 面板、告警和 CI 门禁。
 - 验收标准：一次消息可按 message_id/trace_id 定位全链路；可查看 Agent 状态、沙箱资源、TTFT/P95、检索质量、工具成功率、消息积压、人工介入与 Token 成本；任一核心门禁退化会阻止发布。
 - 暂停点：先完成五项核心指标闭环，再扩充运营报表。
 

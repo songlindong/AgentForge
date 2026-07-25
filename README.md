@@ -14,7 +14,7 @@ AgentForge 是一个面向金融贷款 APP/H5 双渠道客服业务的企业级 
 
 金融智能客服是业务落地场景，以下五项是项目从规划、开发到服务器上线始终不能删除、替换或降级的技术主线：
 
-1. Agent Runtime 内核与调度开发
+1. Agent Runtime 内核、Agent 编排与 Skill 体系开发
 2. 安全沙箱与隔离环境建设
 3. 企业级大模型网关（LLM Gateway）开发
 4. 高效记忆系统（Memory）与知识库（Knowledge Base）建设
@@ -35,6 +35,7 @@ AgentForge 是一个面向金融贷款 APP/H5 双渠道客服业务的企业级 
 
 - 用户端与运营端：Next.js、TypeScript、Tailwind CSS、shadcn/ui、React Flow
 - 渠道接入与核心后端：Go、Hertz、Eino
+- Agent 编排与 Skill：Agent Registry、Router、Planner、DAG、Checkpoint、Skill Registry、JSON Schema
 - RAG 与评测服务：Python、FastAPI、FlagEmbedding、Cross-Encoder
 - 数据层：MySQL、Redis、Kafka、Milvus、OpenSearch、MinIO
 - 模型服务：OpenAI 兼容 API、Ollama、vLLM

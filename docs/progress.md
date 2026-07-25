@@ -18,7 +18,7 @@
 - [x] 明确金融知识通过 RAG 提供带来源回答，利率、额度、征信和审批状态等动态数据必须通过受控 MCP/业务接口获取。
 - [x] 明确首个服务器版本只使用虚构、合成或脱敏数据，未经授权不连接真实金融生产接口。
 - [x] 将 Linux + Docker Compose + HTTPS、备份、监控、CI/CD 和回滚纳入正式发布步骤。
-- [x] 固定 Agent Runtime 内核与调度为不可变核心目标。
+- [x] 固定 Agent Runtime 内核、Agent 编排与 Skill 体系为不可变核心目标。
 - [x] 恢复并固定安全沙箱与隔离环境为独立建设目标，金融回答护栏不能替代沙箱。
 - [x] 固定企业级 LLM Gateway 的鉴权、配额、路由、SSE、重试、熔断、降级和计量范围。
 - [x] 固定分层 Memory 与金融 Knowledge Base 的建设及验收范围。
@@ -58,7 +58,7 @@ specs/product/non-functional-requirements.md
 - 贷款咨询用户、人工客服、运营、合规和运维各自要完成什么任务。
 - 脱敏数据首发版本与授权金融接口版本的边界。
 - 回答有据性、消息可靠性、响应速度、安全和可用性如何形成可测量指标。
-- Agent Runtime、沙箱、LLM Gateway、Memory/Knowledge Base、高并发和百万级 RAG 分别采用什么上线指标。
+- Agent Runtime、Agent 编排、Skill、沙箱、LLM Gateway、Memory/Knowledge Base、高并发和百万级 RAG 分别采用什么上线指标。
 - 域名、服务器配置、模型来源、渠道账号和数据来源中有哪些待确认条件。
 
 本步不会画服务架构、不会创建 Go/Python/Next.js 工程，也不会启动 Docker。
@@ -68,7 +68,7 @@ specs/product/non-functional-requirements.md
 | 决策 | 当前结论 | 说明 |
 |---|---|---|
 | 业务定位 | 企业级金融贷款 APP/H5 双渠道 AI 智能客服 | 围绕金融客服业务闭环完成建设、上线和持续运维 |
-| 永久技术主线 | Agent Runtime、Sandbox、LLM Gateway、Memory/Knowledge Base、高并发与百万级 RAG | 五项不得删除、替换或降级 |
+| 永久技术主线 | Agent Runtime/Agent 编排/Skill、Sandbox、LLM Gateway、Memory/Knowledge Base、高并发与百万级 RAG | 五项不得删除、替换或降级 |
 | 主要渠道 | H5 首先打通，APP 按统一适配契约接入 | APP 与 H5 共用后端业务链路，不扩展其他渠道 |
 | 知识与动态数据 | 金融知识走 RAG；实时信息走 MCP/业务接口 | 模型不得编造利率、额度、征信和审批结果 |
 | 开发方式 | SDD + Harness | 先规格，后实现，每项能力都可验证 |
