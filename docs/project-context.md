@@ -27,7 +27,7 @@ AgentForge 是一个分阶段实施、可部署、可运营、可验证的企业
 | Agent Runtime、Agent 编排与 Skill 体系 | 运行上下文、Agent Registry、Router、Planner、ReAct、DAG、并行/条件编排、人工审批、Checkpoint、Skill Registry 与 MCP 调度 | 确定性场景回放、编排状态机、Skill 契约/版本/权限测试、中断恢复和 Trace 记录 |
 | 安全沙箱与隔离环境 | 隔离运行不可信代码、租户规则脚本、高风险本地工具和受限计算任务 | 逃逸、网络、文件、资源耗尽、超时和残留进程测试全部通过 |
 | 企业级 LLM Gateway | 统一模型协议、鉴权、租户配额、路由、SSE、重试、熔断、降级、计量 | 契约、故障注入、取消传播、路由/配额和 Token 计量测试 |
-| Memory 与 Knowledge Base | 分层会话记忆、摘要、结构化业务记忆、金融文档写入、混合检索、重排与引用 | 删除/过期/隔离测试、RAG 黄金集、引用正确性和备份恢复验证 |
+| Memory 与多模态 Knowledge Base | 分层会话记忆；PDF/扫描件/图片的 OCR、版面与表格提取；金融文档写入、混合检索、重排与页级/区域级引用 | 删除/过期/隔离测试、多模态黄金集、OCR/表格/引用正确性和备份恢复验证 |
 | 高并发 Gateway 与百万级 RAG | SSE 并发控制、背压、缓存、模型吞吐、100 万向量索引与检索优化 | 目标环境压测报告、容量边界、P95/错误率、Recall@K 和资源曲线 |
 
 ### 2.1 Agent、编排、Skill 与 MCP 的关系
@@ -67,7 +67,7 @@ Skill 不是一段简单 Prompt，也不等同于 MCP 工具。Skill 是 Agent �
 
 ## 4. 核心业务边界
 
-### 4.1 RAG 负责的内容
+### 4.1 多模态 Knowledge Base 负责的内容
 
 适合放入知识库并要求引用来源：
 
@@ -75,6 +75,24 @@ Skill 不是一段简单 Prompt，也不等同于 MCP 工具。Skill 是 Agent �
 - 金融政策、合规制度与客服规范
 - 合同模板和条款解释材料
 - 常见问题、业务流程和所需材料
+
+P0 必须支持 PDF、扫描 PDF、PNG/JPEG，完成文件安全检查、OCR、版面分析、表格提取、切片、Embedding、索引和页级/区域级引用。P1 增加 APP/H5 图片上传、截图问答和合同局部图片解读；P2 只预留 ASR/TTS 接口，不在首发实现语音链路。
+
+每个多模态片段至少保留：
+
+```text
+tenant_id
+document_id
+document_version
+file_type
+page_number
+bounding_box
+content_type
+ocr_text
+table_structure
+extractor_model_version
+source_object_key
+```
 
 ### 4.2 MCP/业务接口负责的内容
 
@@ -106,6 +124,9 @@ flowchart TD
     AR --> AO["Agent Orchestrator<br/>Router / Planner / DAG / 审批 / 恢复"]
     AO --> SK["Skill Registry<br/>发现 / 版本 / 权限 / 依赖"]
     SK --> RAG["金融知识库 RAG"]
+    FILE["PDF / 扫描件 / 图片"] --> FS["文件安全检查 / 沙箱"]
+    FS --> MM["OCR / 版面分析 / 表格提取"]
+    MM --> RAG
     SK --> MCP["MCP / 受控业务工具"]
     MCP --> SB["安全沙箱<br/>隔离代码 / 规则脚本 / 高风险本地工具"]
     SK --> LLM["LLM Gateway"]
@@ -169,6 +190,7 @@ H5 用户提问
 - 如何建设具备统一协议、鉴权、配额、路由、熔断、降级、计量和 SSE 的企业级 LLM Gateway。
 - 如何通过 `message_id` 保证幂等，并通过 `conversation_id` 分区保证同一会话有序。
 - 如何让金融知识检索同时兼顾专业术语、数字条款、长合同、时效性和引用可追溯。
+- 如何让扫描合同、图片和复杂表格经过安全解析、OCR、版面恢复和结构化提取后仍能进行页级/区域级引用。
 - 如何构建可删除、可过期、可隔离的分层 Memory，并与 Knowledge Base 明确分工。
 - 如何在目标环境验证高并发 SSE、背压与容量边界，并完成 100 万向量的构建、更新、过滤、检索和效果评测。
 - 如何把产品推荐、还款计算、额度/征信/审批查询拆分为权限明确、可组合、可版本化、可审计的 Agent、Skill 与 MCP 工具。
@@ -188,6 +210,7 @@ H5 用户提问
 - 不把系统用于自动授信、自动审批或具有法律效力的金融决策。
 - 第 0 步不实现安全沙箱，但安全沙箱仍是后续不可删除的独立建设目标。
 - 不立即使用 Kubernetes，不立即部署 vLLM，不立即做 LoRA/QLoRA 微调。
+- 不实现视频理解、实时视频客服或图片生成；P2 语音只预留接口，不进入首发范围。
 - 不直接沿用其他系统或历史环境的质量与性能数据，所有基线都由当前系统重新建立。
 
 ## 8. 已确认技术栈
@@ -198,6 +221,7 @@ H5 用户提问
 | 渠道与核心后端 | Go、Hertz、Eino | 渠道接入、统一消息、Gateway、Agent Runtime、高并发链路 |
 | Agent 编排与 Skill | Go 状态机/DAG、Eino、Agent Registry、Skill Registry、JSON Schema | Agent 路由与规划、Skill 发现/组合、版本、权限、依赖、Checkpoint 和恢复 |
 | RAG 与评测 | Python、FastAPI、FlagEmbedding、Cross-Encoder | 文档处理、Embedding、重排、黄金集评测 |
+| 多模态文档处理 | Docling、PyMuPDF、PaddleOCR、版面分析、表格提取 | PDF/扫描件/图片解析、OCR、结构恢复和页级/区域级引用 |
 | 关系与状态数据 | MySQL 8.0+、Redis | 用户/租户、产品元数据、会话、运行状态、幂等、缓存与配额 |
 | 异步与检索 | Kafka、Milvus、OpenSearch、MinIO | 消息和文档事件、向量、BM25、合同/制度原文 |
 | 模型服务 | OpenAI 兼容 API、Ollama、vLLM | 从外部兼容 API 到本地推理逐步演进 |
@@ -214,6 +238,8 @@ H5 用户提问
 - 所有 Repository 查询必须带 `tenant_id`，并用跨租户恶意测试验证隔离。
 - 日志和 Trace 禁止记录完整身份证号、手机号、银行卡号、Token 或原始征信内容。
 - 知识回答必须保存文档版本、chunk、检索分数和引用，方便审计与纠错。
+- 多模态文件必须校验 MIME/文件魔数、大小、页数、解压比例和恶意内容；清理 EXIF，并在隔离环境完成不可信文件解析。
+- OCR、版面和表格结果必须保存页码、区域坐标、原文件对象键和提取模型版本，不得只保存无法追溯的纯文本。
 - 工具调用必须记录调用人、租户、用途、输入摘要、授权结果、响应状态和 trace_id。
 - Agent 与 Skill 定义必须记录版本、租户可见性、权限、依赖、发布状态和审计信息；禁用或回滚后不能继续调度旧版本。
 - 涉及用户隐私或高风险操作时，必须鉴权、确认、最小授权，并能转人工。
@@ -243,7 +269,7 @@ H5 用户提问
 | Agent Runtime / 编排 / Skill | 核心金融场景可确定性编排与回放；Agent/Skill 注册、发现、版本、权限、顺序/并行/条件/DAG、人工审批、预算、失败重试、Checkpoint 和中断恢复测试通过 |
 | 安全沙箱 | non-root、只读根目录、默认禁网、资源/PID/时长限制和任务销毁生效；严重逃逸与越权测试 0 失败 |
 | LLM Gateway | OpenAI 兼容契约、鉴权、配额、路由、SSE 取消、有限重试、熔断/降级、Token 与费用计量测试通过 |
-| Memory / Knowledge Base | 多租户隔离、记忆删除/过期、文档版本、混合检索、引用和备份恢复测试通过，RAG 指标达到既定基线 |
+| Memory / Multimodal Knowledge Base | 多租户隔离、记忆删除/过期、文档版本、OCR/版面/表格提取、混合检索、页级/区域级引用和备份恢复测试通过，多模态 RAG 指标达到既定基线 |
 | 高并发 / 百万级 RAG | 完成 10/50/100/500/1000 并发阶梯压测和 100 万向量实验；目标并发级别、P95、错误率、Recall@K 与资源上限达到 NFR |
 
 第 1 步必须结合最终服务器配置，在非功能需求中确定“正式上线采用哪个并发级别”及其 P95、错误率和资源阈值。测试阶梯与 100 万向量验证不能删除；如果目标硬件达不到，必须先扩容、调整拓扑或优化，不能跳过门禁直接宣布完成。
@@ -254,7 +280,7 @@ H5 用户提问
 
 SDD 负责定义“正确是什么”：金融业务规则、目标与非目标、契约、状态机、安全不变量、错误处理、SLO 和验收场景。
 
-Harness 负责验证“实现是否真的正确”：固定金融文档与问题集、Fake LLM、Mock MCP、Skill 契约与组合场景、Agent 编排回放、渠道消息场景、RAG 评测、越权测试、压测、Trace 和发布检查。
+Harness 负责验证“实现是否真的正确”：固定文本/扫描件/图片/表格与问题集、Fake LLM、Mock MCP、Skill 契约与组合场景、Agent 编排回放、渠道消息场景、多模态 RAG/OCR/表格评测、越权测试、压测、Trace 和发布检查。
 
 ```text
 业务规格 → 实现 → 自动验证 → 结果说明 → 用户确认已看懂 → 下一步

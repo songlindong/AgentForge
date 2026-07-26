@@ -16,7 +16,7 @@
 | 阶段 | 目标 | 主要结果 |
 |---|---|---|
 | Phase 0 | 金融业务规格与 Harness 地基 | 业务边界、契约、Fake/Mock、测试入口、本地环境 |
-| Phase 1 | 金融知识库 RAG 闭环 | 上传、解析、混合检索、重排、引用、评测 |
+| Phase 1 | 金融多模态知识库 RAG 闭环 | 文件安全、OCR、版面/表格、混合检索、引用、评测 |
 | Phase 2 | 企业级 LLM Gateway 与双渠道消息链路 | 统一模型接口、鉴权配额、路由容错、APP/H5 接入 |
 | Phase 3 | Agent Runtime、Agent 编排与 Skill | Registry、Router、Planner、ReAct、Skill、MCP、DAG、Checkpoint、回放 |
 | Phase 4 | Memory、安全沙箱、合规与用户界面 | 分层记忆、知识协同、隔离执行、权限、护栏、H5 与运营端 |
@@ -30,7 +30,7 @@
 | Agent Runtime、Agent 编排与 Skill 体系 | 第 11～12 步 | 第 18～20 步验证，第 20 步发布 |
 | 安全沙箱与隔离环境 | 第 15 步 | 第 18 步安全门禁，第 20 步发布 |
 | 企业级 LLM Gateway | 第 9 步 | 第 18～20 步故障、压测与发布验证 |
-| Memory 与 Knowledge Base | 第 7～8、13 步 | 第 18～20 步效果、隔离、恢复与发布验证 |
+| Memory 与 Multimodal Knowledge Base | 第 7～8、13 步 | 第 18～20 步效果、隔离、恢复与发布验证 |
 | 高并发 Gateway、百万级 RAG | 第 19 步 | 第 20 步目标服务器复验后才能发布 |
 
 金融业务功能可以分批实现，但这五项目标不能从路线中移除。第 20 步正式发布必须读取五项目标的验收报告；任一门禁失败，状态只能是“待优化”，不能标记为上线完成。
@@ -39,7 +39,7 @@
 
 ### 第 0 步：金融智能客服项目交接与实施计划（本次）
 
-- 本步重点：明确系统面向金融贷款 APP/H5 双渠道客服业务，同时固定 Agent Runtime/Agent 编排/Skill、安全沙箱、企业级 LLM Gateway、Memory/Knowledge Base、高并发与百万级 RAG 五项永久技术目标。
+- 本步重点：明确系统面向金融贷款 APP/H5 双渠道客服业务，同时固定 Agent Runtime/Agent 编排/Skill、安全沙箱、企业级 LLM Gateway、Memory/Multimodal Knowledge Base、高并发与百万级 RAG 五项永久技术目标。
 - 交付物：`README.md`、`AGENTS.md`、`docs/project-context.md`、`docs/development-roadmap.md`、`docs/progress.md`。
 - 验收标准：文档同时覆盖金融业务主线和五项技术主线；五项能力都有建设步骤、验证证据和上线硬门禁；区分知识库内容与动态业务数据；明确不使用未授权的真实金融数据；仓库中没有业务代码。
 - 暂停点：等待你确认业务方向与发布边界。
@@ -48,12 +48,12 @@
 
 - 本步重点：明确贷款咨询用户、人工客服、运营、合规和运维各自需要解决的问题；定义 MVP 与最终上线版本的边界。
 - 交付物：`specs/product/vision.md`、`user-stories.md`、`non-functional-requirements.md`。
-- 验收标准：能用一句话说明系统服务谁、解决什么问题；明确首发渠道和业务场景；区分脱敏数据首发版本与授权金融接口版本；为五项核心目标定义可测量的功能、安全、效果、并发、P95、错误率、Recall@K 和资源阈值。
+- 验收标准：能用一句话说明系统服务谁、解决什么问题；明确首发渠道和业务场景；区分脱敏数据首发版本与授权金融接口版本；固定 P0 文档多模态、P1 图片问答和 P2 语音预留范围；为五项核心目标定义可测量指标。
 - 暂停点：只定义业务问题，不画服务架构、不写代码。
 
 ### 第 2 步：业务架构、安全模型与部署拓扑
 
-- 本步重点：APP/H5 双渠道统一接入、金融知识与动态数据的边界、Agent Runtime、Agent Orchestrator、Skill Registry、LLM Gateway、Memory/Knowledge Base 和安全沙箱的职责，以及本地、测试、性能和生产环境关系。
+- 本步重点：APP/H5 双渠道统一接入、文本/扫描件/图片/表格数据流、Agent Runtime、Agent Orchestrator、Skill Registry、LLM Gateway、Memory/Multimodal Knowledge Base 和安全沙箱的职责，以及本地、测试、性能和生产环境关系。
 - 交付物：系统上下文图、容器图、渠道消息流、RAG 数据流、Agent 调度流、沙箱执行流、安全模型、容量边界、服务器部署拓扑和首批 ADR。
 - 验收标准：能解释每个服务为何存在，Go/Python 如何分工，五项核心目标如何在架构中落位，为什么使用 MySQL/Milvus/OpenSearch，以及哪些端口和服务允许对外暴露。
 - 暂停点：不创建服务实现，不购买服务器或域名。
@@ -61,7 +61,7 @@
 ### 第 3 步：统一消息、API、工具和事件契约
 
 - 本步重点：OpenAPI、JSON Schema、AsyncAPI 和 Gherkin 在金融客服链路中的分工。
-- 交付物：统一渠道消息模型、Chat/SSE API、渠道回调契约、LLM Provider 契约、Agent/编排运行事件、Skill Manifest 与输入输出 Schema、Memory/知识事件、沙箱任务契约、MCP 工具参数和 Given/When/Then 验收场景。
+- 交付物：统一渠道消息模型、文件上传/对象引用契约、多模态 Chat content parts、LLM Provider 能力契约、Agent/编排事件、Skill Manifest、Memory/知识事件、文档解析事件、沙箱任务、MCP 工具参数和 Given/When/Then 场景。
 - 验收标准：明确 `message_id`、`conversation_id`、`tenant_id`、`trace_id`、错误码、幂等、有序、重试、授权和版本策略；契约可被工具校验。
 - 暂停点：只覆盖首条最小闭环，不一次定义所有接口。
 
@@ -75,34 +75,34 @@
 ### 第 5 步：最小本地基础设施
 
 - 本步重点：Docker Compose、健康检查、持久卷、内部网络、配置隔离和固定版本。
-- 交付物：按需要逐个加入 MySQL、Redis、Kafka、Milvus、OpenSearch、MinIO 和最小可观测组件，并提供开发/测试配置。
+- 交付物：按需要逐个加入 MySQL、Redis、Kafka、Milvus、OpenSearch、MinIO、OCR/文档解析运行依赖和最小可观测组件，并提供开发/测试配置。
 - 验收标准：一条命令启动/停止；健康检查通过；重启后的数据行为符合规格；管理端口不对公网暴露；配置中没有真实密钥。
 - 暂停点：只完成本地环境，不部署 Kubernetes，不发布公网。
 
 ### 第 6 步：金融客服 Harness
 
 - 本步重点：为什么 AI 客服的核心验证不能依赖真实模型随机输出或真实资金方接口。
-- 交付物：Fake LLM；Mock MCP；固定金融文档和渠道消息；Skill Registry/版本/权限/依赖样例；Agent 顺序、并行、条件、DAG、审批和恢复回放场景；沙箱攻击样例；网关并发与百万向量数据生成器。
+- 交付物：Fake LLM/视觉响应；Mock MCP；固定文本 PDF、扫描件、图片、表格和渠道消息；人工标注 OCR/版面/表格/引用数据；Skill 与 Agent 回放；恶意文件/沙箱样例；网关并发与百万向量数据生成器。
 - 验收标准：固定响应、SSE、延迟、429/5xx、超时、断流、无效 JSON、Skill 不兼容/禁用/越权/依赖失败、编排恢复、重复消息、资源耗尽和沙箱违规都能稳定触发并复现。
 - 暂停点：不接真实模型和真实金融接口。
 
-### 第 7 步：金融知识库写入闭环
+### 第 7 步：金融多模态知识库写入闭环
 
-- 本步重点：产品资料、政策制度和合同文档的上传、对象存储、解析、条款边界切片、Embedding、异步事件、幂等和版本管理。
-- 交付物：固定金融文档集的上传与入库链路；元数据进入 MySQL，原文进入 MinIO，向量进入 Milvus，关键词索引进入 OpenSearch。
-- 验收标准：重复事件不产生脏数据；失败可重试；每个 chunk 能按 tenant、document、version 和条款位置追踪；敏感内容按规则拒绝或脱敏。
+- 本步重点：PDF/扫描 PDF/PNG/JPEG 的安全上传、对象存储、OCR、版面/阅读顺序、表格提取、条款切片、Embedding、异步事件、幂等和版本管理。
+- 交付物：多模态金融文档上传与入库链路；元数据/OCR/区域/表格进入 MySQL，原文进入 MinIO，向量进入 Milvus，关键词索引进入 OpenSearch。
+- 验收标准：恶意文件被阻止；重复事件不产生脏数据；失败可重试；每个片段可按 tenant、document、version、page、bounding_box、extractor_version 追踪；敏感内容按规则拒绝或脱敏。
 - 暂停点：先保证写入正确，不做复杂检索优化。
 
-### 第 8 步：金融混合检索、重排、引用与评测
+### 第 8 步：金融多模态检索、重排、引用与评测
 
-- 本步重点：BM25、向量召回、RRF、Cross-Encoder、父子切片，以及专业术语、数字条款和长合同的召回问题。
-- 交付物：OpenSearch + Milvus 双路召回、RRF 融合、重排、引用返回和金融黄金问题集。
-- 验收标准：固定问题得到可重复的 Recall@K、MRR/NDCG、引用正确率和回答有据性结果；能比较不同 chunk、TopK 和索引配置。
+- 本步重点：BM25、文本/表格/图片向量召回、RRF、Cross-Encoder、父子切片、OCR/表格质量，以及专业术语、数字条款和长合同召回。
+- 交付物：OpenSearch + Milvus 多路召回、融合、重排、页级/区域级引用，以及文本/扫描件/图片/表格黄金集。
+- 验收标准：Recall@K、MRR/NDCG、OCR CER、表格字段 F1、多模态引用正确率和回答有据性可重复；能比较切片、TopK、解析器和索引配置。
 - 暂停点：先建立当前系统的小数据质量基线，不沿用其他环境的历史指标，不直接做百万向量。
 
 ### 第 9 步：企业级 LLM Gateway 功能闭环
 
-- 本步重点：OpenAI 兼容接口、Provider 抽象、SSE、取消传播、模型注册、鉴权、租户配额、路由、重试预算、熔断、降级和计量。
+- 本步重点：OpenAI 兼容文本/图片 content parts、Provider 多模态能力、SSE、取消传播、模型注册、鉴权、租户配额、能力路由、重试预算、熔断、降级和计量。
 - 交付物：`/v1/chat/completions`、Provider 接口与 Fake Provider、模型注册表、规则路由、JWT/租户权限、Redis 限流与配额、有限重试、熔断/Fallback、统一流式事件和 Token/费用记录。
 - 验收标准：契约、鉴权、配额、路由和故障注入测试通过；客户端断开取消下游；只对允许错误有限重试；主模型不可用时按策略降级；trace_id、Token 和费用统计准确。
 - 暂停点：先用 Fake Provider 验证企业能力，不部署 vLLM，不进入高并发优化。
@@ -124,7 +124,7 @@
 ### 第 12 步：金融 Skill、MCP、DAG 与 Checkpoint
 
 - 本步重点：Skill 与 Prompt、函数、RAG、MCP、复合流程的边界，以及 Manifest、Schema、版本、权限、依赖、幂等、DAG、灰度、回滚和中断恢复。
-- 交付物：金融知识问答、产品检索、利率查询、额度/审批查询、还款试算、合同解读、合规检查和转人工 Skill；对应 MCP/Mock 实现；Skill DAG、Checkpoint、发布和回滚机制。
+- 交付物：金融知识问答、OCR、文档解析、版面分析、表格提取、图片问答、多模态检索、产品/利率/额度/审批、还款试算、合同解读、合规检查和转人工 Skill；对应 MCP/Mock 实现；Skill DAG、Checkpoint、发布和回滚机制。
 - 验收标准：Skill 可独立测试、启停、版本升级和回滚；复合任务能按依赖执行；动态值只来自授权工具；禁用、越权和不兼容版本被拒绝；进程中断后从合法 Checkpoint 继续。
 - 暂停点：全部使用 Mock 或合法测试接口，不连接真实征信/资金方生产环境。
 
@@ -145,8 +145,8 @@
 ### 第 15 步：安全沙箱与隔离环境
 
 - 本步重点：容器不是天然安全边界，以及用户、进程、文件系统、网络、资源、时间和生命周期隔离。
-- 交付物：Go Sandbox Controller + 临时 Docker 容器；任务镜像白名单；non-root、只读根目录、默认禁网、CPU/内存/PID/时长限制、临时目录、禁止 Docker Socket 和审计事件。
-- 验收标准：文件越界、网络访问、Fork Bomb、CPU/内存耗尽、超时、残留进程和危险系统调用场景被阻止；任务结束后容器与临时数据销毁；严重安全场景 0 失败。
+- 交付物：Go Sandbox Controller + 临时 Docker 容器；文档/OCR解析镜像和任务镜像白名单；non-root、只读根目录、默认禁网、CPU/内存/PID/时长限制、临时目录、禁止 Docker Socket 和审计事件。
+- 验收标准：恶意 PDF/图片、压缩炸弹、路径穿越、OCR Prompt Injection、文件越界、网络访问、资源耗尽、超时和残留进程被阻止；任务结束后容器与临时数据销毁；严重安全场景 0 失败。
 - 暂停点：第一版使用 Docker 隔离；第二版再评估 Kubernetes Job、seccomp、AppArmor/SELinux 和 gVisor，不把普通业务进程误称为沙箱。
 
 ### 第 16 步：金融回答护栏、合规校验与审计
@@ -159,21 +159,21 @@
 ### 第 17 步：H5 客服端与运营管理端
 
 - 本步重点：Next.js App Router、Server/Client Component、shadcn/ui、流式对话、引用展示和运营工作流。
-- 交付物：H5 对话、登录、会话与转人工状态、知识库管理、产品资料、Agent Run 详情、沙箱任务、工具审批、审计查询的最小界面。
+- 交付物：H5 对话、登录、会话与转人工状态、多模态知识库管理、原文/OCR/页码/区域预览、P1 图片上传与截图问答、Agent Run、沙箱任务、工具审批和审计界面。
 - 验收标准：核心用户路径有 Playwright 测试；SSE 中断可恢复或明确提示；引用、风险提示和转人工状态清晰；高风险任务展示隔离与审批状态。
 - 暂停点：先满足可用性，不追求完整设计系统或原生 APP。
 
 ### 第 18 步：端到端可观测性与五项目标质量门禁
 
 - 本步重点：日志、指标、Trace、SLO、告警以及五项核心目标的统一发布证据。
-- 交付物：OpenTelemetry 贯通渠道 → Kafka → Runtime/Orchestrator → Agent/Skill → Memory/RAG → LLM Gateway/MCP/Sandbox → 回传；Grafana 面板、告警和 CI 门禁。
+- 交付物：OpenTelemetry 贯通渠道/文件上传 → 安全检查/OCR/版面/表格 → Kafka → Runtime/Agent/Skill → Memory/RAG → LLM Gateway/MCP/Sandbox → 回传；Grafana 面板、告警和 CI 门禁。
 - 验收标准：一次消息可按 message_id/trace_id 定位全链路；可查看 Agent 状态、沙箱资源、TTFT/P95、检索质量、工具成功率、消息积压、人工介入与 Token 成本；任一核心门禁退化会阻止发布。
 - 暂停点：先完成五项核心指标闭环，再扩充运营报表。
 
 ### 第 19 步：高并发 LLM Gateway 与百万级 RAG 优化
 
 - 本步重点：QPS、SSE 并发、背压、TTFT、P95、模型吞吐、Kafka 积压、Recall@K、索引参数、内存和成本之间的权衡。
-- 交付物：10/50/100/500/1000 并发阶梯压测；100 万向量生成、批量写入、索引构建、增量更新、租户过滤和检索实验；缓存、路由、批处理、HNSW/IVF 参数及可选 Ollama/vLLM 优化报告。
+- 交付物：10/50/100/500/1000 并发阶梯压测；包含文本/表格/图片的 100 万向量生成、批量写入、索引构建、增量更新、租户过滤和检索实验；OCR/解析队列、缓存、路由、批处理与索引优化报告。
 - 验收标准：百万向量实验真实完成；目标并发级别、P95、错误率、取消传播、Recall@K 和资源阈值达到第 1 步 NFR；环境、数据、参数和结果可复现；容量上限有明确结论。
 - 暂停点：不虚构生产规模；未达目标时继续优化或调整服务器拓扑，不能跳过后直接发布。
 
@@ -181,7 +181,7 @@
 
 - 本步重点：把五项核心能力完整部署到目标环境，并验证域名、HTTPS、反向代理、环境隔离、密钥、迁移、备份恢复、CI/CD、健康检查和回滚。
 - 交付物：生产部署拓扑与 Docker Compose；必要时按性能报告扩展多实例或通过 ADR 采用 Kubernetes；Nginx/Caddy、证书、部署脚本、备份恢复、发布清单和运维手册。
-- 验收标准：全新环境可复现部署；公网只开放必要端口；HTTPS 有效；备份可恢复；异常版本可回滚；五项核心目标的功能、安全、故障、性能门禁在目标服务器复验通过；上线监控与告警可用。
+- 验收标准：全新环境可复现部署；公网只开放必要端口；HTTPS 有效；多模态文件/OCR/提取数据可备份恢复；异常版本可回滚；五项核心目标和多模态门禁在目标服务器复验通过；上线监控与告警可用。
 - 暂停点：五项中任何一项未通过则发布失败；首发只使用脱敏/模拟金融数据和合法模型，未经授权不接真实金融生产接口。
 
 ### 第 21 步：生产验收、运维移交与系统复盘

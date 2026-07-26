@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-**状态：第 1 步“产品愿景、用户角色、范围与成功标准”已完成，等待用户确认。**
+**状态：第 1 步产品规格已升级到 0.2.0，多模态范围与指标已补齐，等待用户确认。**
 
 当前没有正在实现的业务步骤。下一候选步骤是“第 2 步：业务架构、安全模型与部署拓扑”，只有用户确认第 1 步后才能开始。
 
@@ -21,7 +21,7 @@
 - [x] 固定 Agent Runtime 内核、Agent 编排与 Skill 体系为不可变核心目标。
 - [x] 恢复并固定安全沙箱与隔离环境为独立建设目标，金融回答护栏不能替代沙箱。
 - [x] 固定企业级 LLM Gateway 的鉴权、配额、路由、SSE、重试、熔断、降级和计量范围。
-- [x] 固定分层 Memory 与金融 Knowledge Base 的建设及验收范围。
+- [x] 固定分层 Memory 与金融 Multimodal Knowledge Base 的建设及验收范围。
 - [x] 固定高并发 Gateway 与 100 万向量 RAG 的真实压测和优化要求。
 - [x] 将正式服务器发布调整到五项目标完成质量与性能验证之后；任何一项失败都不能标记为上线完成。
 - [x] 固定关系型数据库为 MySQL 8.0+。
@@ -40,15 +40,20 @@
 - [x] 固定 1000 条 SSE 连接、100 个活跃生成请求和 100 万向量的 GA 容量目标。
 - [x] 固定跨租户泄漏、严重金融幻觉、未授权 Agent/Skill 调用和严重沙箱失败数量为 0。
 - [x] 明确目标服务器资源不足时通过扩容或调整拓扑解决，不能删除发布指标。
+- [x] 将第 4 项核心目标扩展为 Memory 与 Multimodal Knowledge Base，五项目标数量不变。
+- [x] 固定 P0 支持 PDF/扫描 PDF/PNG/JPEG 的安全处理、OCR、版面分析、表格提取和页级/区域级引用。
+- [x] 固定 P1 支持 APP/H5 图片上传、截图问答和合同局部图片解读。
+- [x] 固定 P2 只预留 ASR/TTS；视频理解、实时视频客服和图片生成不在范围内。
+- [x] 增加多模态用户故事、OCR/表格/引用质量指标、文件安全与沙箱门禁。
 - [x] 未创建架构规格、接口契约、业务代码或基础设施。
 
 ## 需要你在继续前确认
 
 阅读以下第 1 步规格后，确认产品范围和指标是否符合要求：
 
-1. `specs/product/vision.md`：系统服务谁、做什么、不做什么和怎样分阶段发布。
+1. `specs/product/vision.md`：系统服务谁、做什么、不做什么、P0/P1/P2 多模态范围和怎样分阶段发布。
 2. `specs/product/user-stories.md`：各角色需要完成的任务和 P0 验收摘要。
-3. `specs/product/non-functional-requirements.md`：正式发布必须达到的质量、性能、安全、容量和恢复指标。
+3. `specs/product/non-functional-requirements.md`：正式发布必须达到的质量、性能、安全、容量、OCR/表格/引用和恢复指标。
 
 如果范围或指标需要调整，应先修改第 1 步规格，再进入第 2 步。
 
@@ -69,7 +74,7 @@ specs/adr/ADR-*.md
 
 本步会讲清：
 
-- APP/H5、渠道接入、Kafka、Agent Runtime、Agent Orchestrator、Skill Registry、Memory、RAG、MCP、沙箱和 LLM Gateway 怎样协作。
+- APP/H5、文件上传、安全检查、OCR/版面/表格、Kafka、Agent Runtime、Skill Registry、Memory、多模态 RAG、MCP、沙箱和 LLM Gateway 怎样协作。
 - 哪些调用同步执行，哪些通过事件异步执行。
 - 金融数据怎样分级，信任边界和权限检查放在哪里。
 - 1000 SSE、100 活跃生成和 100 万向量目标需要怎样的部署拓扑。
@@ -82,7 +87,8 @@ specs/adr/ADR-*.md
 | 决策 | 当前结论 | 说明 |
 |---|---|---|
 | 业务定位 | 企业级金融贷款 APP/H5 双渠道 AI 智能客服 | 围绕金融客服业务闭环完成建设、上线和持续运维 |
-| 永久技术主线 | Agent Runtime/Agent 编排/Skill、Sandbox、LLM Gateway、Memory/Knowledge Base、高并发与百万级 RAG | 五项不得删除、替换或降级 |
+| 永久技术主线 | Agent Runtime/Agent 编排/Skill、Sandbox、LLM Gateway、Memory/Multimodal Knowledge Base、高并发与百万级 RAG | 五项不得删除、替换或降级 |
+| 多模态范围 | P0 文档多模态、P1 图片问答、P2 语音预留 | 不建设视频理解、实时视频客服和图片生成 |
 | 主要渠道 | H5 首先打通，APP 按统一适配契约接入 | APP 与 H5 共用后端业务链路，不扩展其他渠道 |
 | 知识与动态数据 | 金融知识走 RAG；实时信息走 MCP/业务接口 | 模型不得编造利率、额度、征信和审批结果 |
 | 开发方式 | SDD + Harness | 先规格，后实现，每项能力都可验证 |

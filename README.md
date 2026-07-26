@@ -17,7 +17,7 @@ AgentForge 是一个面向金融贷款 APP/H5 双渠道客服业务的企业级 
 1. Agent Runtime 内核、Agent 编排与 Skill 体系开发
 2. 安全沙箱与隔离环境建设
 3. 企业级大模型网关（LLM Gateway）开发
-4. 高效记忆系统（Memory）与知识库（Knowledge Base）建设
+4. 高效记忆系统（Memory）与多模态知识库（Multimodal Knowledge Base）建设
 5. 高并发 LLM 网关、百万级 RAG 知识库优化
 
 正式上线不是只把页面和接口部署到服务器。五项能力必须分别完成规格、实现、测试、性能或安全验证，并在目标服务器环境通过发布门禁；任何一项没有验收证据，都不能把项目标记为“上线完成”。
@@ -40,6 +40,7 @@ AgentForge 是一个面向金融贷款 APP/H5 双渠道客服业务的企业级 
 - 渠道接入与核心后端：Go、Hertz、Eino
 - Agent 编排与 Skill：Agent Registry、Router、Planner、DAG、Checkpoint、Skill Registry、JSON Schema
 - RAG 与评测服务：Python、FastAPI、FlagEmbedding、Cross-Encoder
+- 多模态文档处理：Docling、PyMuPDF、PaddleOCR、版面分析与表格提取
 - 数据层：MySQL、Redis、Kafka、Milvus、OpenSearch、MinIO
 - 模型服务：OpenAI 兼容 API、Ollama、vLLM
 - 身份与安全：Keycloak、JWT/OAuth2、Casbin、Docker/Kubernetes Sandbox、敏感数据脱敏、操作审计
