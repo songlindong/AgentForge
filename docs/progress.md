@@ -1,12 +1,12 @@
 # AgentForge 分步实施进度
 
-最后更新：2026-07-25
+最后更新：2026-07-26
 
 ## 当前状态
 
-**状态：第 1 步产品规格已升级到 0.2.0，多模态范围与指标已补齐，等待用户确认。**
+**状态：第 2 步“业务架构、安全模型与部署拓扑”已完成，等待用户确认。**
 
-当前没有正在实现的业务步骤。下一候选步骤是“第 2 步：业务架构、安全模型与部署拓扑”，只有用户确认第 1 步后才能开始。
+当前没有正在实现的业务步骤。下一候选步骤是“第 3 步：统一消息、API、工具和事件契约”，只有用户确认第 2 步后才能开始。
 
 ## 已完成
 
@@ -45,40 +45,49 @@
 - [x] 固定 P1 支持 APP/H5 图片上传、截图问答和合同局部图片解读。
 - [x] 固定 P2 只预留 ASR/TTS；视频理解、实时视频客服和图片生成不在范围内。
 - [x] 增加多模态用户故事、OCR/表格/引用质量指标、文件安全与沙箱门禁。
-- [x] 未创建架构规格、接口契约、业务代码或基础设施。
+- [x] 第 1 步范围内未创建接口契约、业务代码或基础设施。
+
+### 第 2 步：业务架构、安全模型与部署拓扑
+
+- [x] 创建 `specs/architecture/system-context.md`，明确系统边界、外部参与者、信任边界和架构不变量。
+- [x] 创建 `specs/architecture/container-view.md`，明确 Channel Gateway、LLM Gateway、Agent Runtime、Skill Registry、Memory、Knowledge、MCP、沙箱和观测容器职责。
+- [x] 创建 `specs/architecture/data-flow.md`，明确 APP/H5 消息、多模态文档、动态业务、Agent Run、Kafka 事件、重试、死信和 Trace 数据流。
+- [x] 创建 `specs/architecture/security-model.md`，明确身份、租户隔离、Agent/Skill、文件、模型、沙箱、审计和威胁控制。
+- [x] 创建 `specs/architecture/deployment-view.md`，明确 Local/Test/Performance/Production 环境、网络边界、Compose 起步、容量 profile、发布、备份和恢复。
+- [x] 创建 8 个 ADR，记录语言分工、数据存储、Kafka 语义、Agent/Skill 编排、LLM Gateway、沙箱、多环境部署和多模态入库决策。
+- [x] 未创建 Go/Python/Next.js 工程，不安装依赖，不启动 Docker，不购买服务器或域名。
 
 ## 需要你在继续前确认
 
-阅读以下第 1 步规格后，确认产品范围和指标是否符合要求：
+阅读以下第 2 步架构规格后，确认服务边界、数据流、安全模型和部署假设是否符合要求：
 
-1. `specs/product/vision.md`：系统服务谁、做什么、不做什么、P0/P1/P2 多模态范围和怎样分阶段发布。
-2. `specs/product/user-stories.md`：各角色需要完成的任务和 P0 验收摘要。
-3. `specs/product/non-functional-requirements.md`：正式发布必须达到的质量、性能、安全、容量、OCR/表格/引用和恢复指标。
+1. `specs/architecture/system-context.md`：系统边界、参与者、核心上下文和信任边界。
+2. `specs/architecture/container-view.md`：容器职责、Agent Runtime 内部组件和调用边界。
+3. `specs/architecture/data-flow.md`：消息、文档、动态数据、Run 恢复、Kafka 和 Trace 流程。
+4. `specs/architecture/security-model.md`：身份、租户、文件、Agent/Skill、沙箱和审计控制。
+5. `specs/architecture/deployment-view.md`：环境、网络、容量、发布、备份和恢复拓扑。
+6. `specs/adr/`：8 个关键架构取舍。
 
-如果范围或指标需要调整，应先修改第 1 步规格，再进入第 2 步。
+如果服务边界、数据流或部署假设需要调整，应先修改第 2 步规格，再进入第 3 步。
 
 ## 下一步（尚未开始）
 
-### 第 2 步：业务架构、安全模型与部署拓扑
+### 第 3 步：统一消息、API、工具和事件契约
 
 计划只创建：
 
 ```text
-specs/architecture/system-context.md
-specs/architecture/container-view.md
-specs/architecture/data-flow.md
-specs/architecture/security-model.md
-specs/architecture/deployment-view.md
-specs/adr/ADR-*.md
+contracts/openapi/
+contracts/json-schema/
+contracts/asyncapi/
+specs/modules/*/acceptance.feature
 ```
 
 本步会讲清：
 
-- APP/H5、文件上传、安全检查、OCR/版面/表格、Kafka、Agent Runtime、Skill Registry、Memory、多模态 RAG、MCP、沙箱和 LLM Gateway 怎样协作。
-- 哪些调用同步执行，哪些通过事件异步执行。
-- 金融数据怎样分级，信任边界和权限检查放在哪里。
-- 1000 SSE、100 活跃生成和 100 万向量目标需要怎样的部署拓扑。
-- 本地、测试、性能和生产环境分别包含哪些组件。
+- 统一消息、Chat/SSE、文件对象引用、LLM Provider、Agent/Skill、Memory、MCP 和 Kafka 事件字段。
+- OpenAPI、JSON Schema、AsyncAPI 和 Gherkin 分别解决什么问题。
+- 幂等键、版本、错误码、重试、超时和兼容策略如何表达。
 
 本步不会创建 Go/Python/Next.js 工程，也不会启动 Docker。
 
