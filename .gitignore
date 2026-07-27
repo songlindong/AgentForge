@@ -1,0 +1,61 @@
+# 本地配置与密钥
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# 编辑器与操作系统
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Go
+bin/
+coverage.out
+*.test
+.agentforge-cache/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Node.js / Next.js
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+pnpm-debug.log*
+npm-debug.log*
+
+# 基础设施本地状态
+infra/data/
+infra/state/
+*.tfstate
+*.tfstate.*
+
+# 生成报告，仅保留目录说明
+reports/*
+!reports/.gitkeep
+!reports/README.md
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+*.log

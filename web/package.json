@@ -1,0 +1,18 @@
+{
+  "name": "@agentforge/web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "AgentForge Web 工程边界；业务实现尚未开始",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=24.14.0 <25",
+    "pnpm": ">=11.9.0 <12"
+  },
+  "scripts": {
+    "check": "node ./scripts/check-foundation.mjs",
+    "format:check": "node ./scripts/check-foundation.mjs",
+    "lint": "node ./scripts/check-foundation.mjs",
+    "test": "node --test ./tests/*.test.mjs"
+  }
+}
+

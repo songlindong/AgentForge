@@ -1,0 +1,7 @@
+[project]
+name = "agentforge-harness"
+version = "0.0.0"
+description = "AgentForge 可重复验证环境的工程边界"
+requires-python = ">=3.13,<3.14"
+dependencies = []
+

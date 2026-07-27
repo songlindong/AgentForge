@@ -1,0 +1,7 @@
+[project]
+name = "agentforge-document-processor"
+version = "0.0.0"
+description = "AgentForge Document Processor 工程边界"
+requires-python = ">=3.13,<3.14"
+dependencies = []
+

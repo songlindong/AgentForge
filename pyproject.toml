@@ -1,0 +1,13 @@
+[project]
+name = "agentforge-python-workspace"
+version = "0.0.0"
+description = "AgentForge Python 服务与 Harness 工程边界"
+requires-python = ">=3.13,<3.14"
+dependencies = []
+
+[tool.agentforge.workspace]
+members = [
+  "services/knowledge-service",
+  "services/document-processor",
+  "harness",
+]

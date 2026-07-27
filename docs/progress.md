@@ -1,12 +1,12 @@
 # AgentForge 分步实施进度
 
-最后更新：2026-07-26
+最后更新：2026-07-27
 
 ## 当前状态
 
-**状态：第 3 步“统一消息、API、工具和事件契约”已完成，等待用户确认。**
+**状态：第 4 步“仓库骨架与最小工程门禁”已完成，等待用户确认。**
 
-当前没有正在实现的业务步骤。下一候选步骤是“第 4 步：仓库骨架与最小工程门禁”，只有用户确认第 3 步后才能开始。
+当前没有正在实现的业务步骤。下一候选步骤是“第 5 步：最小本地基础设施”，只有用户确认第 4 步后才能开始。
 
 ## 已完成
 
@@ -83,36 +83,62 @@
 - `git diff --check`：通过。
 - 当前环境没有预装 `jsonschema`、OpenAPI 或 AsyncAPI 专用 Linter；本步没有为校验临时安装依赖。第 4 步将在工程门禁中提供固定版本的正式规格检查命令。
 
+### 第 4 步：仓库骨架与最小工程门禁
+
+- [x] 用户确认第 3 步后开始第 4 步，没有提前实现第 5 步或任何业务模块。
+- [x] 创建 `specs/engineering/repository-foundation.md`，定义仓库骨架的目标、非目标、命令契约、状态、安全不变量、指标、依赖取舍和验收方式。
+- [x] 创建 `specs/engineering/repository-foundation.feature`，增加结构、规格失败、离线门禁和能力边界 4 个中文 Gherkin 场景。
+- [x] 创建 `services/`，声明 Channel、LLM Gateway、Agent Runtime、Skill Registry、Memory、MCP、Sandbox、Knowledge 和 Document Processor 服务边界。
+- [x] 创建 Go Workspace 和最小可编译包，未增加 Go 第三方依赖或业务逻辑。
+- [x] 创建 Python 根工作区、Knowledge、Document Processor 和 Harness 的空 `pyproject.toml`，未增加 Python 第三方依赖或业务逻辑。
+- [x] 创建 `web/` 私有 Node.js/pnpm 工作区，固定脚本契约，未安装 Next.js、React 或其他 Web 依赖，未创建页面。
+- [x] 创建 `harness/` 的 Fake、Mock、Fixture、Replay 和 Generator 边界，未提前实现第 6 步 Harness。
+- [x] 创建 `tests/` 的单元、契约、集成、端到端、安全和性能测试分层。
+- [x] 创建 `infra/` 的 Compose、环境、可观测性和运维脚本边界；未创建 Compose 栈，未启动任何基础设施。
+- [x] 创建 `reports/` 证据目录并配置忽略规则，保留说明但忽略生成报告。
+- [x] 固定 Go 1.26.2、Python 3.13.14、Node.js 24.14.0 和 pnpm 11.9.0 的工具版本边界。
+- [x] 创建 `tools/check.py` 统一离线门禁以及 PowerShell/Bash 转发脚本，覆盖 `structure`、`specs`、`format`、`static`、`test` 和 `ci`。
+- [x] 规格门禁检查 JSON 语法、本地 `$ref`/JSON Pointer、OpenAPI/AsyncAPI/JSON Schema 顶层、中文 Gherkin 结构和禁用表述。
+- [x] 门禁只使用 Python/Go/Node 标准工具，不下载依赖，不连接模型或金融接口，不启动 Docker。
+- [x] 创建 GitHub Actions 最小质量门禁，并与本地共用 `python tools/check.py ci`。
+- [x] 增加 `.editorconfig`、`.gitattributes` 和 `.gitignore`，忽略密钥、缓存、依赖、基础设施本地数据和生成报告。
+- [x] 更新根 `README.md`，说明当前状态、目录职责、环境版本和统一检查命令。
+- [x] 未实现 Channel、RAG、LLM Gateway、Agent Runtime、Agent/Skill Registry、Memory、MCP 或 Sandbox 业务。
+
+#### 第 4 步实际验证
+
+- 首次 `python tools/check.py ci` 在格式门禁发现两个 Go 文件末尾不符合 `gofmt`；按 `gofmt -d` 结果修正，没有放宽门禁。
+- 第二次门禁在 `go vet` 阶段发现 Windows 默认 Go 缓存目录无写权限；将 `GOCACHE` 固定到仓库内已忽略的 `.agentforge-cache/go-build` 后解决，没有申请额外权限。
+- 完整 `python tools/check.py ci`：通过；检查 17 个 JSON 契约、8 个中文 Feature 和 38 个场景，并通过结构、格式、静态和 Go/Python/Node 基础测试。
+- 门禁执行期间没有安装依赖、访问外部模型/金融接口或启动基础设施。
+
 ## 需要你在继续前确认
 
-阅读以下第 3 步契约后，确认字段、状态、错误语义和安全边界是否符合要求：
+阅读以下第 4 步文件后，确认仓库边界和统一门禁是否符合要求：
 
-1. `contracts/openapi/channel-api.openapi.json`：APP/H5 消息、受控附件、SSE、取消和外部错误语义。
-2. `contracts/openapi/llm-gateway.openapi.json`：内部 OpenAI 兼容 Chat/SSE、服务鉴权、租户上下文、模态和重试边界。
-3. `contracts/json-schema/`：统一消息、Agent、Skill、Run、MCP、Memory、Knowledge、沙箱及公共类型。
-4. `contracts/asyncapi/kafka.asyncapi.json`：Topic、生产/消费、分区键、事件包络、版本和死信。
-5. `specs/modules/*/acceptance.feature`：未来 Harness 必须执行的 Given/When/Then 行为。
+1. `specs/engineering/repository-foundation.md`：第 4 步为什么这样拆目录、统一命令如何工作以及当前能力边界。
+2. `services/README.md`：Go/Python 服务将来分别放在哪里、承担什么职责。
+3. `harness/README.md` 与 `tests/README.md`：Harness 和不同测试层的分工。
+4. `tools/check.py`：本地与 CI 共用的离线门禁实现。
+5. `.github/workflows/quality-gate.yml`：CI 如何调用完全相同的入口。
 
-如果字段、状态、错误码、版本或重试策略需要调整，应先修改第 3 步契约，再进入第 4 步。
+如果目录、版本或门禁职责需要调整，应先修改第 4 步，再进入第 5 步。
 
 ## 下一步（尚未开始）
 
-### 第 4 步：仓库骨架与最小工程门禁
+### 第 5 步：最小本地基础设施
 
 计划创建：
 
 ```text
-services/
-web/
-harness/
-tests/
-infra/
-reports/
+MySQL、Redis、Kafka、Milvus、OpenSearch、MinIO
+固定版本的 Docker Compose 与健康检查
+Local/Test 配置模板、内部网络和持久卷
 ```
 
-本步会建立 Go、Python、Next.js 的空工程边界、统一命令、格式化、静态检查、规格检查、测试分层和 CI 最小门禁。
+第 5 步会按实际依赖关系逐个建立最小本地基础设施，并验证启动、健康、停止、重启和数据行为。
 
-本步不会实现渠道、RAG、LLM Gateway、Agent Runtime、Skill、Memory 或沙箱业务。
+第 5 步仍不会实现 Channel、RAG、LLM Gateway、Agent Runtime、Skill、Memory 或 Sandbox 业务，也不会部署公网或 Kubernetes。
 
 ## 决策记录摘要
 

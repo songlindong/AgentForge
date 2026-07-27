@@ -6,9 +6,11 @@ AgentForge 是一个面向金融贷款 APP/H5 双渠道客服业务的企业级 
 
 ## 当前状态
 
-当前已完成“第 2 步：业务架构、安全模型与部署拓扑”，尚未创建业务代码、安装依赖或启动基础设施。
+当前已完成“第 4 步：仓库骨架与最小工程门禁”，已建立 Go、Python、Web、Harness、测试、基础设施和报告边界，并提供本地与 CI 共用的离线检查入口。
 
-**当前暂停点：等待你阅读并确认架构规格；确认后只进入第 3 步。**
+当前仍没有 Channel、RAG、LLM Gateway、Agent Runtime、Skill、Memory 或 Sandbox 业务实现，也没有启动任何基础设施。
+
+**当前暂停点：等待你阅读并确认第 4 步；确认后只进入第 5 步。**
 
 ## 不可变的五项核心技术目标
 
@@ -35,6 +37,48 @@ AgentForge 是一个面向金融贷款 APP/H5 双渠道客服业务的企业级 
 | [specs/product/non-functional-requirements.md](specs/product/non-functional-requirements.md) | 性能、质量、安全、容量、恢复和上线指标 |
 | [specs/architecture/](specs/architecture/) | 系统上下文、容器、数据流、安全和部署架构 |
 | [specs/adr/](specs/adr/) | 关键架构决策记录 |
+| [specs/engineering/repository-foundation.md](specs/engineering/repository-foundation.md) | 第 4 步仓库骨架、统一命令和门禁规格 |
+
+## 工程目录
+
+| 目录 | 职责 |
+|---|---|
+| `services/` | Go/Python 后端服务边界 |
+| `web/` | H5 与运营端 Web 工作区边界 |
+| `harness/` | Fake、Mock、Fixture、回放和数据生成器边界 |
+| `tests/` | 单元、契约、集成、端到端、安全和性能测试分层 |
+| `infra/` | Compose、环境、可观测性和运维脚本边界 |
+| `reports/` | 可复现验证证据的输出边界 |
+| `tools/` | 仓库级离线门禁工具，不包含业务逻辑 |
+
+目录存在只表示职责位置已经确定，不表示相关业务能力已经实现。
+
+## 环境与统一检查
+
+本步固定的工具版本为：
+
+- Go `1.26.2`
+- Python `3.13.14`
+- Node.js `24.14.0`
+- pnpm `11.9.0`
+
+安装或切换到根目录版本文件声明的运行时后，执行完整门禁：
+
+```powershell
+python tools/check.py ci
+```
+
+也可以分别执行：
+
+```powershell
+python tools/check.py structure
+python tools/check.py specs
+python tools/check.py format
+python tools/check.py static
+python tools/check.py test
+```
+
+Windows 可以使用 `tools/check.ps1`，Linux/macOS 可以使用 `tools/check.sh`。包装脚本只转发到同一 Python 入口。当前门禁离线运行，不安装依赖、不访问模型或金融接口，也不启动 Docker。
 
 ## 已确认的核心技术栈
 
