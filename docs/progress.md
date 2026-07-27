@@ -4,9 +4,9 @@
 
 ## 当前状态
 
-**状态：第 4 步“仓库骨架与最小工程门禁”已完成，等待用户确认。**
+**状态：第 5 步“最小本地基础设施”已完成，等待用户确认。**
 
-当前没有正在实现的业务步骤。下一候选步骤是“第 5 步：最小本地基础设施”，只有用户确认第 4 步后才能开始。
+当前没有正在实现的步骤。下一候选步骤是“第 6 步：金融客服 Harness”，只有用户确认第 5 步后才能开始。
 
 ## 已完成
 
@@ -112,33 +112,65 @@
 - 完整 `python tools/check.py ci`：通过；检查 17 个 JSON 契约、8 个中文 Feature 和 38 个场景，并通过结构、格式、静态和 Go/Python/Node 基础测试。
 - 门禁执行期间没有安装依赖、访问外部模型/金融接口或启动基础设施。
 
+### 第 5 步：最小本地基础设施
+
+- [x] 用户确认第 4 步后开始第 5 步，没有提前实现第 6 步 Harness 或任何业务模块。
+- [x] 创建 `specs/engineering/local-infrastructure.md` 与中文 Gherkin 验收规格，定义目标、非目标、组件版本、配置、网络、健康、持久化、错误语义和边界。
+- [x] 创建固定版本的 Compose，包含 MySQL 8.4.7、Redis 8.2.3、Kafka 4.1.1、MinIO、OpenSearch 3.3.2、etcd 3.5.18 和 Milvus 2.6.6，未使用 `latest`。
+- [x] 创建 Local/Test 配置模板；两套环境使用不同 Compose 项目名、宿主机端口、本地占位凭证和命名卷，不包含生产密钥或真实金融数据。
+- [x] Local MySQL 使用宿主机 `127.0.0.1:3307`，避让开发机已有 MySQL57 的 `3306`；容器内仍使用标准端口 3306。
+- [x] 建立 `agentforge-data` 内部数据网络和 `agentforge-local-access` 本机访问网络；组件间只使用内部地址，需要调试的端口只绑定 `127.0.0.1`，etcd 不发布端口。
+- [x] 为 7 个常驻组件配置健康检查；MinIO 初始化任务幂等创建 AgentForge 与 Milvus 本地 Bucket，成功后退出。
+- [x] 为 MySQL、Redis、Kafka、MinIO、OpenSearch、etcd 和 Milvus 分别配置持久卷；Redis 启用 AOF。
+- [x] 创建 `tools/infra.py` 统一控制器以及 PowerShell/Bash 包装入口，支持配置、拉取、启动、等待、状态、Smoke、重启验证、停止和显式确认销毁。
+- [x] `restart-verify` 使用随机合成探针验证 7 类组件重启后的数据行为，并在验证后清理探针。
+- [x] Smoke 从宿主机逐一验证 MySQL、Redis、Kafka、MinIO API/Console、OpenSearch、Milvus API/Health 共 8 个发布端口真实可达，避免把仅有 Compose 端口声明误判为可访问。
+- [x] 普通 `down` 只删除容器与网络，保留 7 个命名卷；卷销毁必须传入环境对应的显式确认文本。
+- [x] 将 Compose 模型检查加入 `python tools/check.py ci`，持续校验固定镜像、健康检查、网络、端口、卷和 Local/Test 隔离。
+- [x] 未创建金融业务表、Kafka 业务 Topic、正式索引或 Milvus Collection；未实现 Channel、RAG、Gateway、Agent、Skill、Memory、MCP、Sandbox、可观测平台或生产发布。
+
+#### 第 5 步实际验证
+
+- `python tools/infra.py config-all`：通过；Local/Test 各包含 8 个服务、7 个卷，项目名与宿主机端口无冲突。
+- 首次拉取固定镜像时 Milvus 大分层在外层命令约 32 分钟后超时；保留已下载分层并用 `docker pull --quiet milvusdb/milvus:v2.6.6` 续传成功，没有改用浮动标签或旧版本。
+- 首次启动发现宿主机 MySQL57 已占用 3306；没有停止既有服务，将 AgentForge Local MySQL 宿主机端口调整为 3307 后重新验证。
+- 真实运行发现 Docker Desktop 29.4.3 对只连接 `internal: true` 网络的容器不建立宿主机端口映射；通过可清理的临时容器复现后，拆分内部数据网络与本机访问网络，保持所有发布端口只监听 `127.0.0.1`。
+- 首次 Smoke 发现 etcd 3.5.18 镜像没有 `/bin/sh`；将 etcd 探针改为直接参数执行 `etcdctl`，没有跳过 etcd 验证。
+- `python tools/infra.py up --env local`：通过；MySQL、Redis、Kafka、MinIO、OpenSearch、etcd、Milvus 全部 `healthy`，`minio-init` 退出码为 0。
+- `python tools/infra.py smoke --env local`：通过；7 个组件与两个 MinIO Bucket 均可访问，实际宿主机端口只绑定 `127.0.0.1`，etcd 无宿主机端口。
+- `python tools/infra.py restart-verify --env local`：通过；7 类合成探针在容器重启后全部可读，并完成清理。
+- `python tools/infra.py down --env local`：通过；Local 容器与两张网络全部移除，7 个命名卷全部保留。
+- `python tools/infra.py destroy --env local`（未提供确认文本）：按预期拒绝执行，证明普通命令不能误删持久卷。
+- 完整 `python tools/check.py ci`：通过；检查 17 个 JSON 契约、9 个中文 Feature、43 个场景，并通过结构、格式、Local/Test Compose 配置、静态和 Go/Python/Node 基础测试。
+- `git diff --check`：通过；仅有 Git 对 `.gitignore` 后续可能进行 LF/CRLF 转换的非阻断提示。
+
 ## 需要你在继续前确认
 
-阅读以下第 4 步文件后，确认仓库边界和统一门禁是否符合要求：
+阅读以下第 5 步文件后，确认基础设施边界和统一命令是否符合要求：
 
-1. `specs/engineering/repository-foundation.md`：第 4 步为什么这样拆目录、统一命令如何工作以及当前能力边界。
-2. `services/README.md`：Go/Python 服务将来分别放在哪里、承担什么职责。
-3. `harness/README.md` 与 `tests/README.md`：Harness 和不同测试层的分工。
-4. `tools/check.py`：本地与 CI 共用的离线门禁实现。
-5. `.github/workflows/quality-gate.yml`：CI 如何调用完全相同的入口。
+1. `specs/engineering/local-infrastructure.md`：本步组件、网络、健康、持久化和非目标。
+2. `infra/compose/compose.yaml`：固定镜像、健康检查、两张网络、端口和命名卷如何组合。
+3. `infra/environments/local.env.example` 与 `test.env.example`：Local/Test 如何隔离。
+4. `tools/infra.py`：统一生命周期、Smoke 和持久化验证如何执行。
+5. `specs/engineering/local-infrastructure.feature`：本步必须满足的 Given/When/Then 场景。
 
-如果目录、版本或门禁职责需要调整，应先修改第 4 步，再进入第 5 步。
+如果组件版本、端口、网络或数据语义需要调整，应先修改第 5 步，再进入第 6 步。
 
 ## 下一步（尚未开始）
 
-### 第 5 步：最小本地基础设施
+### 第 6 步：金融客服 Harness
 
 计划创建：
 
 ```text
-MySQL、Redis、Kafka、Milvus、OpenSearch、MinIO
-固定版本的 Docker Compose 与健康检查
-Local/Test 配置模板、内部网络和持久卷
+Fake LLM/视觉响应与 Mock MCP
+固定文本 PDF、扫描件、图片、表格和渠道消息
+Agent/Skill 回放、安全样例与数据生成器
 ```
 
-第 5 步会按实际依赖关系逐个建立最小本地基础设施，并验证启动、健康、停止、重启和数据行为。
+第 6 步会建立确定性的正常、失败、超时、断流、越权和恢复场景，让后续 AI 与业务能力不依赖真实模型随机输出或真实资金方接口。
 
-第 5 步仍不会实现 Channel、RAG、LLM Gateway、Agent Runtime、Skill、Memory 或 Sandbox 业务，也不会部署公网或 Kubernetes。
+第 6 步仍不会接入真实模型、真实征信、银行或资金方接口，也不会提前实现第 7 步知识库写入业务。
 
 ## 决策记录摘要
 

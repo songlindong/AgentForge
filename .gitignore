@@ -46,6 +46,8 @@ npm-debug.log*
 # 基础设施本地状态
 infra/data/
 infra/state/
+infra/environments/*.env
+!infra/environments/*.env.example
 *.tfstate
 *.tfstate.*
 

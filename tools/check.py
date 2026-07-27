@@ -58,6 +58,10 @@ REQUIRED_FILES = (
     "services/knowledge-service/pyproject.toml",
     "services/document-processor/pyproject.toml",
     "harness/pyproject.toml",
+    "infra/compose/compose.yaml",
+    "infra/environments/local.env.example",
+    "infra/environments/test.env.example",
+    "tools/infra.py",
     "web/package.json",
     "web/pnpm-workspace.yaml",
 )
@@ -350,7 +354,7 @@ def check_runtime_versions() -> None:
 
 def check_static() -> None:
     check_runtime_versions()
-    run([sys.executable, "-m", "py_compile", "tools/check.py"])
+    run([sys.executable, "-m", "py_compile", "tools/check.py", "tools/infra.py"])
     run(
         ["go", "vet", "./..."],
         cwd=ROOT / "services",
@@ -358,6 +362,11 @@ def check_static() -> None:
     )
     run([node_command(), "web/scripts/check-foundation.mjs"])
     print("[static] Python 语法、go vet 和 Web 元数据检查通过")
+
+
+def check_infrastructure() -> None:
+    run([sys.executable, "tools/infra.py", "config-all"])
+    print("[infrastructure] Local/Test Compose 配置检查通过")
 
 
 def check_tests() -> None:
@@ -386,6 +395,7 @@ CHECKS = {
     "structure": check_structure,
     "specs": check_specs,
     "format": check_format,
+    "infrastructure": check_infrastructure,
     "static": check_static,
     "test": check_tests,
 }

@@ -6,11 +6,11 @@ AgentForge 是一个面向金融贷款 APP/H5 双渠道客服业务的企业级 
 
 ## 当前状态
 
-当前已完成“第 4 步：仓库骨架与最小工程门禁”，已建立 Go、Python、Web、Harness、测试、基础设施和报告边界，并提供本地与 CI 共用的离线检查入口。
+当前已完成“第 5 步：最小本地基础设施”，已建立固定版本的 MySQL、Redis、Kafka、MinIO、OpenSearch、etcd 和 Milvus Local/Test Compose，提供健康等待、Smoke、重启持久化验证和安全停止入口。
 
-当前仍没有 Channel、RAG、LLM Gateway、Agent Runtime、Skill、Memory 或 Sandbox 业务实现，也没有启动任何基础设施。
+当前仍没有 Channel、RAG、LLM Gateway、Agent Runtime、Skill、Memory、MCP 或 Sandbox 业务实现；本地组件健康只证明数据基础设施可用。
 
-**当前暂停点：等待你阅读并确认第 4 步；确认后只进入第 5 步。**
+**当前暂停点：等待你阅读并确认第 5 步；确认后只进入第 6 步。**
 
 ## 不可变的五项核心技术目标
 
@@ -38,6 +38,7 @@ AgentForge 是一个面向金融贷款 APP/H5 双渠道客服业务的企业级 
 | [specs/architecture/](specs/architecture/) | 系统上下文、容器、数据流、安全和部署架构 |
 | [specs/adr/](specs/adr/) | 关键架构决策记录 |
 | [specs/engineering/repository-foundation.md](specs/engineering/repository-foundation.md) | 第 4 步仓库骨架、统一命令和门禁规格 |
+| [specs/engineering/local-infrastructure.md](specs/engineering/local-infrastructure.md) | 第 5 步本地基础设施、网络、健康和持久化规格 |
 
 ## 工程目录
 
@@ -74,11 +75,26 @@ python tools/check.py ci
 python tools/check.py structure
 python tools/check.py specs
 python tools/check.py format
+python tools/check.py infrastructure
 python tools/check.py static
 python tools/check.py test
 ```
 
-Windows 可以使用 `tools/check.ps1`，Linux/macOS 可以使用 `tools/check.sh`。包装脚本只转发到同一 Python 入口。当前门禁离线运行，不安装依赖、不访问模型或金融接口，也不启动 Docker。
+Windows 可以使用 `tools/check.ps1`，Linux/macOS 可以使用 `tools/check.sh`。包装脚本只转发到同一 Python 入口。工程门禁不安装依赖、不访问模型或金融接口；其中 `infrastructure` 只解析 Compose 配置，不启动 Docker 容器。
+
+## 本地基础设施
+
+确保 Docker Desktop/Engine 已启动后，使用统一入口管理 Local 环境：
+
+```powershell
+python tools/infra.py up --env local
+python tools/infra.py status --env local
+python tools/infra.py smoke --env local
+python tools/infra.py restart-verify --env local
+python tools/infra.py down --env local
+```
+
+Local MySQL 在宿主机使用 `127.0.0.1:3307`，用于避让常见的既有 MySQL `3306`；容器内仍使用 3306。其他端口与数据删除规则见第 5 步规格。普通 `down` 保留命名卷，不能用它代替显式数据销毁。
 
 ## 已确认的核心技术栈
 
