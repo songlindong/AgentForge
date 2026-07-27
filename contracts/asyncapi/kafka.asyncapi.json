@@ -1,0 +1,334 @@
+{
+  "asyncapi": "2.6.0",
+  "info": {
+    "title": "AgentForge Kafka Event Contracts",
+    "version": "0.1.0",
+    "description": "APP/H5 消息、Agent/Skill、Memory、多模态知识处理、审计、评测和死信事件。Kafka 采用至少一次投递，消费者必须按幂等键和状态机去重。",
+    "x-compatibility-policy": {
+      "same_major": "只允许新增可选字段和新增事件类型；消费者必须忽略未知可选字段。",
+      "breaking_change": "提升 event_version 主版本，并使用新 Topic 或双写迁移。",
+      "replay": "重放前重新执行租户、权限、版本和幂等检查。"
+    }
+  },
+  "defaultContentType": "application/json",
+  "servers": {
+    "local": {
+      "url": "kafka:9092",
+      "protocol": "kafka",
+      "description": "本地及测试环境占位地址；生产地址通过环境配置提供。"
+    }
+  },
+  "channels": {
+    "user.message.received": {
+      "description": "Channel Gateway 持久化统一消息后发布；Agent Runtime 按 conversation_id 顺序消费。",
+      "x-partition-key": "conversation_id",
+      "publish": {
+        "operationId": "publishUserMessageReceived",
+        "message": { "$ref": "#/components/messages/UserMessageReceived" }
+      },
+      "subscribe": {
+        "operationId": "consumeUserMessageReceived",
+        "message": { "$ref": "#/components/messages/UserMessageReceived" }
+      }
+    },
+    "agent.run.events": {
+      "description": "Agent Runtime 追加发布 Run/Task/Checkpoint 状态事件；Replay 与 Observability 消费。",
+      "x-partition-key": "run_id",
+      "publish": {
+        "operationId": "publishAgentRunEvent",
+        "message": { "$ref": "#/components/messages/AgentRunEvent" }
+      },
+      "subscribe": {
+        "operationId": "consumeAgentRunEvent",
+        "message": { "$ref": "#/components/messages/AgentRunEvent" }
+      }
+    },
+    "skill.execution.events": {
+      "description": "Skill Executor 发布已解析版本、执行状态、重试和终态；不得包含未脱敏输入原文。",
+      "x-partition-key": "run_id",
+      "publish": {
+        "operationId": "publishSkillExecutionEvent",
+        "message": { "$ref": "#/components/messages/SkillExecutionEvent" }
+      },
+      "subscribe": {
+        "operationId": "consumeSkillExecutionEvent",
+        "message": { "$ref": "#/components/messages/SkillExecutionEvent" }
+      }
+    },
+    "memory.lifecycle.events": {
+      "description": "Memory 写入、删除、过期和失败事件；事件只携带受控引用与摘要，不携带高敏原文。",
+      "x-partition-key": "conversation_id",
+      "publish": {
+        "operationId": "publishMemoryLifecycleEvent",
+        "message": { "$ref": "#/components/messages/MemoryLifecycleEvent" }
+      },
+      "subscribe": {
+        "operationId": "consumeMemoryLifecycleEvent",
+        "message": { "$ref": "#/components/messages/MemoryLifecycleEvent" }
+      }
+    },
+    "document.uploaded": {
+      "description": "安全检查通过并持久化原文件后发布；不合格文件不得产生该事件。",
+      "x-partition-key": "document_id",
+      "publish": {
+        "operationId": "publishDocumentUploaded",
+        "message": { "$ref": "#/components/messages/DocumentUploaded" }
+      },
+      "subscribe": {
+        "operationId": "consumeDocumentUploaded",
+        "message": { "$ref": "#/components/messages/DocumentUploaded" }
+      }
+    },
+    "document.parsed": {
+      "description": "沙箱中的 OCR、版面和表格提取完成后发布。",
+      "x-partition-key": "document_id",
+      "publish": {
+        "operationId": "publishDocumentParsed",
+        "message": { "$ref": "#/components/messages/DocumentParsed" }
+      },
+      "subscribe": {
+        "operationId": "consumeDocumentParsed",
+        "message": { "$ref": "#/components/messages/DocumentParsed" }
+      }
+    },
+    "document.chunked": {
+      "description": "条款/父子切片完成后发布，Embedding 与 BM25 消费。",
+      "x-partition-key": "document_id",
+      "publish": {
+        "operationId": "publishDocumentChunked",
+        "message": { "$ref": "#/components/messages/DocumentChunked" }
+      },
+      "subscribe": {
+        "operationId": "consumeDocumentChunked",
+        "message": { "$ref": "#/components/messages/DocumentChunked" }
+      }
+    },
+    "embedding.requested": {
+      "description": "Embedding Worker 请求 Milvus Writer 写入版本化向量。",
+      "x-partition-key": "document_id",
+      "publish": {
+        "operationId": "publishEmbeddingRequested",
+        "message": { "$ref": "#/components/messages/EmbeddingRequested" }
+      },
+      "subscribe": {
+        "operationId": "consumeEmbeddingRequested",
+        "message": { "$ref": "#/components/messages/EmbeddingRequested" }
+      }
+    },
+    "knowledge.version.published": {
+      "description": "BM25 与向量索引均达到一致状态后发布 Knowledge Version。",
+      "x-partition-key": "knowledge_base_id",
+      "publish": {
+        "operationId": "publishKnowledgeVersion",
+        "message": { "$ref": "#/components/messages/KnowledgeVersionPublished" }
+      },
+      "subscribe": {
+        "operationId": "consumeKnowledgeVersion",
+        "message": { "$ref": "#/components/messages/KnowledgeVersionPublished" }
+      }
+    },
+    "audit.events": {
+      "description": "所有服务发布脱敏审计事件；Audit Sink 按 tenant_id 隔离存储。",
+      "x-partition-key": "tenant_id",
+      "publish": {
+        "operationId": "publishAuditEvent",
+        "message": { "$ref": "#/components/messages/AuditEvent" }
+      },
+      "subscribe": {
+        "operationId": "consumeAuditEvent",
+        "message": { "$ref": "#/components/messages/AuditEvent" }
+      }
+    },
+    "evaluation.requested": {
+      "description": "请求对指定数据集和目标版本执行可复现评测。",
+      "x-partition-key": "evaluation_id",
+      "publish": {
+        "operationId": "publishEvaluationRequested",
+        "message": { "$ref": "#/components/messages/EvaluationRequested" }
+      },
+      "subscribe": {
+        "operationId": "consumeEvaluationRequested",
+        "message": { "$ref": "#/components/messages/EvaluationRequested" }
+      }
+    },
+    "dead-letter.{source}": {
+      "description": "超过重试预算或永久失败的事件；按租户隔离，人工重放前必须重新校验。",
+      "parameters": {
+        "source": {
+          "description": "原 Topic 的受控别名",
+          "schema": { "type": "string", "pattern": "^[a-z0-9.-]+$" }
+        }
+      },
+      "x-partition-key": "original_partition_key",
+      "publish": {
+        "operationId": "publishDeadLetter",
+        "message": { "$ref": "#/components/messages/DeadLetterEvent" }
+      },
+      "subscribe": {
+        "operationId": "consumeDeadLetter",
+        "message": { "$ref": "#/components/messages/DeadLetterEvent" }
+      }
+    }
+  },
+  "components": {
+    "messageTraits": {
+      "StandardHeaders": {
+        "headers": { "$ref": "../json-schema/event-envelope.schema.json#/$defs/KafkaHeaders" }
+      }
+    },
+    "messages": {
+      "UserMessageReceived": {
+        "name": "UserMessageReceived",
+        "title": "统一用户消息已接收",
+        "traits": [{ "$ref": "#/components/messageTraits/StandardHeaders" }],
+        "payload": {
+          "allOf": [
+            { "$ref": "../json-schema/event-envelope.schema.json#/$defs/EventEnvelope" },
+            {
+              "type": "object",
+              "properties": {
+                "event_type": { "const": "user.message.received" },
+                "event_version": { "const": "1.0.0" },
+                "data": { "$ref": "../json-schema/unified-message.schema.json#/$defs/UnifiedMessageEnvelope" }
+              }
+            }
+          ]
+        }
+      },
+      "AgentRunEvent": {
+        "name": "AgentRunEvent",
+        "title": "Agent Run 状态事件",
+        "traits": [{ "$ref": "#/components/messageTraits/StandardHeaders" }],
+        "payload": {
+          "allOf": [
+            { "$ref": "../json-schema/event-envelope.schema.json#/$defs/EventEnvelope" },
+            {
+              "type": "object",
+              "properties": {
+                "event_type": { "const": "agent.run.event" },
+                "event_version": { "const": "1.0.0" },
+                "data": { "$ref": "../json-schema/run.schema.json#/$defs/RunEvent" }
+              }
+            }
+          ]
+        }
+      },
+      "SkillExecutionEvent": {
+        "name": "SkillExecutionEvent",
+        "title": "Skill 执行状态事件",
+        "traits": [{ "$ref": "#/components/messageTraits/StandardHeaders" }],
+        "payload": {
+          "allOf": [
+            { "$ref": "../json-schema/event-envelope.schema.json#/$defs/EventEnvelope" },
+            {
+              "type": "object",
+              "properties": {
+                "event_type": { "const": "skill.execution.event" },
+                "event_version": { "const": "1.0.0" },
+                "data": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["run_id", "task_id", "step_id", "skill_id", "skill_version", "status", "attempt", "occurred_at"],
+                  "properties": {
+                    "run_id": { "$ref": "../json-schema/common.schema.json#/$defs/Identifier" },
+                    "task_id": { "$ref": "../json-schema/common.schema.json#/$defs/Identifier" },
+                    "step_id": { "$ref": "../json-schema/common.schema.json#/$defs/Identifier" },
+                    "skill_id": { "$ref": "../json-schema/common.schema.json#/$defs/Identifier" },
+                    "skill_version": { "$ref": "../json-schema/common.schema.json#/$defs/SemanticVersion" },
+                    "status": { "type": "string", "enum": ["resolved", "started", "retrying", "succeeded", "failed", "cancelled"] },
+                    "attempt": { "type": "integer", "minimum": 1 },
+                    "duration_ms": { "type": "integer", "minimum": 0 },
+                    "failure_code": { "$ref": "../json-schema/error.schema.json#/$defs/ErrorCode" },
+                    "occurred_at": { "$ref": "../json-schema/common.schema.json#/$defs/Timestamp" }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "MemoryLifecycleEvent": {
+        "name": "MemoryLifecycleEvent",
+        "title": "Memory 生命周期事件",
+        "traits": [{ "$ref": "#/components/messageTraits/StandardHeaders" }],
+        "payload": {
+          "allOf": [
+            { "$ref": "../json-schema/event-envelope.schema.json#/$defs/EventEnvelope" },
+            {
+              "type": "object",
+              "properties": {
+                "event_type": { "const": "memory.lifecycle.event" },
+                "event_version": { "const": "1.0.0" },
+                "data": { "$ref": "../json-schema/memory-event.schema.json#/$defs/MemoryEventPayload" }
+              }
+            }
+          ]
+        }
+      },
+      "DocumentUploaded": {
+        "name": "DocumentUploaded",
+        "traits": [{ "$ref": "#/components/messageTraits/StandardHeaders" }],
+        "payload": { "allOf": [
+          { "$ref": "../json-schema/event-envelope.schema.json#/$defs/EventEnvelope" },
+          { "type": "object", "properties": { "event_type": { "const": "document.uploaded" }, "event_version": { "const": "1.0.0" }, "data": { "$ref": "../json-schema/knowledge-event.schema.json#/$defs/DocumentUploadedPayload" } } }
+        ] }
+      },
+      "DocumentParsed": {
+        "name": "DocumentParsed",
+        "traits": [{ "$ref": "#/components/messageTraits/StandardHeaders" }],
+        "payload": { "allOf": [
+          { "$ref": "../json-schema/event-envelope.schema.json#/$defs/EventEnvelope" },
+          { "type": "object", "properties": { "event_type": { "const": "document.parsed" }, "event_version": { "const": "1.0.0" }, "data": { "$ref": "../json-schema/knowledge-event.schema.json#/$defs/DocumentParsedPayload" } } }
+        ] }
+      },
+      "DocumentChunked": {
+        "name": "DocumentChunked",
+        "traits": [{ "$ref": "#/components/messageTraits/StandardHeaders" }],
+        "payload": { "allOf": [
+          { "$ref": "../json-schema/event-envelope.schema.json#/$defs/EventEnvelope" },
+          { "type": "object", "properties": { "event_type": { "const": "document.chunked" }, "event_version": { "const": "1.0.0" }, "data": { "$ref": "../json-schema/knowledge-event.schema.json#/$defs/DocumentChunkedPayload" } } }
+        ] }
+      },
+      "EmbeddingRequested": {
+        "name": "EmbeddingRequested",
+        "traits": [{ "$ref": "#/components/messageTraits/StandardHeaders" }],
+        "payload": { "allOf": [
+          { "$ref": "../json-schema/event-envelope.schema.json#/$defs/EventEnvelope" },
+          { "type": "object", "properties": { "event_type": { "const": "embedding.requested" }, "event_version": { "const": "1.0.0" }, "data": { "$ref": "../json-schema/knowledge-event.schema.json#/$defs/EmbeddingRequestedPayload" } } }
+        ] }
+      },
+      "KnowledgeVersionPublished": {
+        "name": "KnowledgeVersionPublished",
+        "traits": [{ "$ref": "#/components/messageTraits/StandardHeaders" }],
+        "payload": { "allOf": [
+          { "$ref": "../json-schema/event-envelope.schema.json#/$defs/EventEnvelope" },
+          { "type": "object", "properties": { "event_type": { "const": "knowledge.version.published" }, "event_version": { "const": "1.0.0" }, "data": { "$ref": "../json-schema/knowledge-event.schema.json#/$defs/KnowledgeVersionPublishedPayload" } } }
+        ] }
+      },
+      "AuditEvent": {
+        "name": "AuditEvent",
+        "traits": [{ "$ref": "#/components/messageTraits/StandardHeaders" }],
+        "payload": { "allOf": [
+          { "$ref": "../json-schema/event-envelope.schema.json#/$defs/EventEnvelope" },
+          { "type": "object", "properties": { "event_type": { "const": "audit.event" }, "event_version": { "const": "1.0.0" }, "data": { "$ref": "../json-schema/event-envelope.schema.json#/$defs/AuditEventPayload" } } }
+        ] }
+      },
+      "EvaluationRequested": {
+        "name": "EvaluationRequested",
+        "traits": [{ "$ref": "#/components/messageTraits/StandardHeaders" }],
+        "payload": { "allOf": [
+          { "$ref": "../json-schema/event-envelope.schema.json#/$defs/EventEnvelope" },
+          { "type": "object", "properties": { "event_type": { "const": "evaluation.requested" }, "event_version": { "const": "1.0.0" }, "data": { "$ref": "../json-schema/knowledge-event.schema.json#/$defs/EvaluationRequestedPayload" } } }
+        ] }
+      },
+      "DeadLetterEvent": {
+        "name": "DeadLetterEvent",
+        "traits": [{ "$ref": "#/components/messageTraits/StandardHeaders" }],
+        "payload": { "allOf": [
+          { "$ref": "../json-schema/event-envelope.schema.json#/$defs/EventEnvelope" },
+          { "type": "object", "properties": { "event_type": { "const": "dead.letter.created" }, "event_version": { "const": "1.0.0" }, "data": { "$ref": "../json-schema/event-envelope.schema.json#/$defs/DeadLetterPayload" } } }
+        ] }
+      }
+    }
+  }
+}

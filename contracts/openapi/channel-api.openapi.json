@@ -1,0 +1,246 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AgentForge APP/H5 Channel API",
+    "version": "0.1.0",
+    "description": "首条 H5 金融知识问答闭环的外部 API 契约。APP 后续复用同一消息模型。tenant_id 和 user_id 始终由认证上下文解析，不能由客户端请求体指定。",
+    "x-compatibility-policy": {
+      "same_major": "只新增可选字段、响应头或新路径；不改变已有字段含义、必填性和错误语义。",
+      "breaking_change": "使用新的 API 主版本路径并提供迁移与并行支持窗口。"
+    },
+    "x-idempotency-policy": {
+      "scope": "tenant_id + operationId + Idempotency-Key",
+      "minimum_retention_hours": 24,
+      "conflict": "相同键配不同请求摘要返回 IDEMPOTENCY_CONFLICT。"
+    }
+  },
+  "servers": [
+    { "url": "https://api.agentforge.example", "description": "部署时替换的 HTTPS 服务地址" }
+  ],
+  "security": [
+    { "bearerAuth": [] }
+  ],
+  "tags": [
+    { "name": "Files", "description": "受控文件上传与对象引用" },
+    { "name": "Messages", "description": "APP/H5 统一消息、SSE 和取消" }
+  ],
+  "paths": {
+    "/v1/files": {
+      "post": {
+        "tags": ["Files"],
+        "operationId": "uploadControlledFile",
+        "summary": "上传 PDF、PNG 或 JPEG 并创建租户内受控对象",
+        "description": "上传成功只表示对象已持久化并进入安全检查，不表示 OCR、知识入库或图片理解已经完成。",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["file", "purpose"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary" },
+                  "purpose": { "const": "chat_attachment" }
+                }
+              },
+              "encoding": {
+                "file": {
+                  "contentType": "application/pdf, image/png, image/jpeg"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "文件已接收并进入安全检查",
+            "headers": { "X-Trace-ID": { "$ref": "#/components/headers/TraceId" } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../json-schema/file-object.schema.json#/$defs/FileObject" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "413": { "$ref": "#/components/responses/PayloadTooLarge" },
+          "415": { "$ref": "#/components/responses/UnsupportedMediaType" },
+          "422": { "$ref": "#/components/responses/UnprocessableContent" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/v1/messages": {
+      "post": {
+        "tags": ["Messages"],
+        "operationId": "acceptChannelMessage",
+        "summary": "接收 APP/H5 统一消息",
+        "description": "Idempotency-Key 必须与请求体 message_id 相同。202 仅表示消息已持久化，回答通过 SSE 返回。",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "../json-schema/unified-message.schema.json#/$defs/ChannelMessageRequest" }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "消息已持久化并等待处理；相同幂等键和相同请求体返回同一结果",
+            "headers": { "X-Trace-ID": { "$ref": "#/components/headers/TraceId" } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../json-schema/unified-message.schema.json#/$defs/ChannelMessageAccepted" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/UnprocessableContent" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/v1/messages/{message_id}/events": {
+      "get": {
+        "tags": ["Messages"],
+        "operationId": "streamMessageEvents",
+        "summary": "订阅消息生成事件",
+        "description": "SSE id 对同一 message_id 单调递增。客户端可使用 Last-Event-ID 恢复；服务端不得跨租户返回事件。",
+        "parameters": [
+          { "$ref": "#/components/parameters/MessageId" },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "maxLength": 128 },
+            "description": "最后确认的 SSE event id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE 事件流；终态为 response.completed、handoff.required 或 error",
+            "headers": { "X-Trace-ID": { "$ref": "#/components/headers/TraceId" } },
+            "content": {
+              "text/event-stream": {
+                "schema": { "type": "string" },
+                "x-event-data-schema": { "$ref": "../json-schema/unified-message.schema.json#/$defs/ChannelSseEvent" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/v1/messages/{message_id}/cancel": {
+      "post": {
+        "tags": ["Messages"],
+        "operationId": "cancelMessageGeneration",
+        "summary": "取消正在进行的消息生成",
+        "description": "取消必须向 Agent Runtime、LLM Gateway 和下游 Provider 传播；重复取消安全返回相同终态。",
+        "parameters": [
+          { "$ref": "#/components/parameters/MessageId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "../json-schema/unified-message.schema.json#/$defs/CancelRequest" }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "取消请求已接受",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../json-schema/unified-message.schema.json#/$defs/CancelAccepted" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "parameters": {
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": { "$ref": "../json-schema/common.schema.json#/$defs/IdempotencyKey" },
+        "description": "同一租户和操作范围内唯一；相同键配不同请求体返回 IDEMPOTENCY_CONFLICT。"
+      },
+      "MessageId": {
+        "name": "message_id",
+        "in": "path",
+        "required": true,
+        "schema": { "$ref": "../json-schema/common.schema.json#/$defs/IdempotencyKey" }
+      }
+    },
+    "headers": {
+      "TraceId": {
+        "description": "用于关联消息、Agent、RAG、模型和工具调用的 trace_id",
+        "schema": { "$ref": "../json-schema/common.schema.json#/$defs/TraceId" }
+      }
+    },
+    "responses": {
+      "BadRequest": { "$ref": "#/components/responses/Error400" },
+      "Unauthorized": { "$ref": "#/components/responses/Error401" },
+      "Forbidden": { "$ref": "#/components/responses/Error403" },
+      "NotFound": { "$ref": "#/components/responses/Error404" },
+      "Conflict": { "$ref": "#/components/responses/Error409" },
+      "PayloadTooLarge": { "$ref": "#/components/responses/Error413" },
+      "UnsupportedMediaType": { "$ref": "#/components/responses/Error415" },
+      "UnprocessableContent": { "$ref": "#/components/responses/Error422" },
+      "TooManyRequests": { "$ref": "#/components/responses/Error429" },
+      "InternalError": { "$ref": "#/components/responses/Error500" },
+      "Unavailable": { "$ref": "#/components/responses/Error503" },
+      "Error400": { "description": "请求格式或字段无效", "content": { "application/json": { "schema": { "$ref": "../json-schema/error.schema.json#/$defs/ErrorResponse" } } } },
+      "Error401": { "description": "缺少或无效身份", "content": { "application/json": { "schema": { "$ref": "../json-schema/error.schema.json#/$defs/ErrorResponse" } } } },
+      "Error403": { "description": "租户、资源或操作无权限", "content": { "application/json": { "schema": { "$ref": "../json-schema/error.schema.json#/$defs/ErrorResponse" } } } },
+      "Error404": { "description": "资源不存在或对当前租户不可见", "content": { "application/json": { "schema": { "$ref": "../json-schema/error.schema.json#/$defs/ErrorResponse" } } } },
+      "Error409": { "description": "幂等键、版本或状态冲突", "content": { "application/json": { "schema": { "$ref": "../json-schema/error.schema.json#/$defs/ErrorResponse" } } } },
+      "Error413": { "description": "文件或请求体超过限制", "content": { "application/json": { "schema": { "$ref": "../json-schema/error.schema.json#/$defs/ErrorResponse" } } } },
+      "Error415": { "description": "媒体类型不支持或 MIME 与魔数不一致", "content": { "application/json": { "schema": { "$ref": "../json-schema/error.schema.json#/$defs/ErrorResponse" } } } },
+      "Error422": { "description": "请求可解析但不符合业务或安全契约", "content": { "application/json": { "schema": { "$ref": "../json-schema/error.schema.json#/$defs/ErrorResponse" } } } },
+      "Error429": { "description": "限流、配额或并发限制", "headers": { "Retry-After": { "schema": { "type": "integer", "minimum": 0 } } }, "content": { "application/json": { "schema": { "$ref": "../json-schema/error.schema.json#/$defs/ErrorResponse" } } } },
+      "Error500": { "description": "AgentForge 内部错误", "content": { "application/json": { "schema": { "$ref": "../json-schema/error.schema.json#/$defs/ErrorResponse" } } } },
+      "Error503": { "description": "依赖不可用或系统暂时不能处理", "headers": { "Retry-After": { "schema": { "type": "integer", "minimum": 0 } } }, "content": { "application/json": { "schema": { "$ref": "../json-schema/error.schema.json#/$defs/ErrorResponse" } } } }
+    }
+  }
+}

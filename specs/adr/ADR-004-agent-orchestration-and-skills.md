@@ -1,6 +1,6 @@
 # ADR-004：Agent 编排与 Skill Registry
 
-状态：Proposed  
+状态：Accepted
 日期：2026-07-26
 
 ## 背景

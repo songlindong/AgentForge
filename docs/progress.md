@@ -4,9 +4,9 @@
 
 ## 当前状态
 
-**状态：第 2 步“业务架构、安全模型与部署拓扑”已完成，等待用户确认。**
+**状态：第 3 步“统一消息、API、工具和事件契约”已完成，等待用户确认。**
 
-当前没有正在实现的业务步骤。下一候选步骤是“第 3 步：统一消息、API、工具和事件契约”，只有用户确认第 2 步后才能开始。
+当前没有正在实现的业务步骤。下一候选步骤是“第 4 步：仓库骨架与最小工程门禁”，只有用户确认第 3 步后才能开始。
 
 ## 已完成
 
@@ -57,39 +57,62 @@
 - [x] 创建 8 个 ADR，记录语言分工、数据存储、Kafka 语义、Agent/Skill 编排、LLM Gateway、沙箱、多环境部署和多模态入库决策。
 - [x] 未创建 Go/Python/Next.js 工程，不安装依赖，不启动 Docker，不购买服务器或域名。
 
+### 第 3 步：统一消息、API、工具和事件契约
+
+- [x] 创建 `contracts/openapi/channel-api.openapi.json`，定义 APP/H5 受控文件上传、统一消息接收、SSE 恢复和取消契约；终端请求不能指定可信 `tenant_id` 或 `user_id`。
+- [x] 创建 `contracts/openapi/llm-gateway.openapi.json`，定义内部 OpenAI 兼容 Chat/SSE、服务身份、租户、Run、Step、Trace、幂等和受控图片引用契约。
+- [x] 创建 14 个 JSON Schema，覆盖公共类型、错误码、受控文件对象、统一 content parts、统一消息、LLM Provider、Agent Manifest、Skill Manifest、Run/Task/Step/Event、MCP Tool、Memory、Knowledge、多模态处理事件和沙箱任务。
+- [x] 固定图片和文件只使用租户内 `agentforge://objects/...` 或对象引用，不允许模型服务访问任意公网文件 URL。
+- [x] 固定 Agent/Skill 的版本、权限、租户可见性、依赖、预算、超时、重试、并发、副作用、审批、幂等和验收场景字段。
+- [x] 固定 Run 快照包含 Agent、Skill、Tool、Model、Memory Policy 和 Knowledge Version，支持后续确定性回放和 Checkpoint 恢复。
+- [x] 创建 `contracts/asyncapi/kafka.asyncapi.json`，定义 12 个 Kafka Channel，覆盖统一消息、Agent、Skill、Memory、文档、Embedding、Knowledge 发布、审计、评测和死信。
+- [x] 固定 Kafka 至少一次投递、分区键、事件版本、幂等键、关联/因果 ID、Trace、重试次数和兼容策略。
+- [x] 创建 Channel、LLM Gateway、Agent Runtime、Knowledge、MCP、Memory 和 Sandbox 共 7 份简体中文 Gherkin 验收规格；字段名、错误码、接口路径和标签保留标准技术名称。
+- [x] 验收场景覆盖租户身份、重复消息、同会话有序、SSE 恢复、取消传播、模型能力路由、有限重试、Skill 授权、预算、审批、Checkpoint、文件安全、引用、动态数据、Memory 隔离和沙箱资源边界。
+- [x] 根据用户确认同步第 1、2 步规格页头为“已确认”，并将 8 个 ADR 状态同步为 `Accepted`；未修改其设计内容。
+- [x] 未创建 Go/Python/Next.js 工程，未安装依赖，未启动 Docker，也未实现任何业务服务。
+
+#### 第 3 步实际验证
+
+- `ConvertFrom-Json`：17 个 OpenAPI/AsyncAPI/JSON Schema 文件全部通过 JSON 语法解析。
+- 自定义 PowerShell `$ref` 检查：17 个文件的外部文件引用和 JSON Pointer 均可解析。
+- OpenAPI 顶层检查：2 个文件均为 OpenAPI 3.1.0，且包含有效 Paths。
+- AsyncAPI 顶层检查：AsyncAPI 2.6.0，12 个 Channel 均可枚举。
+- Gherkin 结构检查：7 个 `acceptance.feature` 均声明 `# language: zh-CN`，并包含功能、场景、假如、当和那么。
+- 禁用表述检查：未出现禁止的渠道和背景表述。
+- `git diff --check`：通过。
+- 当前环境没有预装 `jsonschema`、OpenAPI 或 AsyncAPI 专用 Linter；本步没有为校验临时安装依赖。第 4 步将在工程门禁中提供固定版本的正式规格检查命令。
+
 ## 需要你在继续前确认
 
-阅读以下第 2 步架构规格后，确认服务边界、数据流、安全模型和部署假设是否符合要求：
+阅读以下第 3 步契约后，确认字段、状态、错误语义和安全边界是否符合要求：
 
-1. `specs/architecture/system-context.md`：系统边界、参与者、核心上下文和信任边界。
-2. `specs/architecture/container-view.md`：容器职责、Agent Runtime 内部组件和调用边界。
-3. `specs/architecture/data-flow.md`：消息、文档、动态数据、Run 恢复、Kafka 和 Trace 流程。
-4. `specs/architecture/security-model.md`：身份、租户、文件、Agent/Skill、沙箱和审计控制。
-5. `specs/architecture/deployment-view.md`：环境、网络、容量、发布、备份和恢复拓扑。
-6. `specs/adr/`：8 个关键架构取舍。
+1. `contracts/openapi/channel-api.openapi.json`：APP/H5 消息、受控附件、SSE、取消和外部错误语义。
+2. `contracts/openapi/llm-gateway.openapi.json`：内部 OpenAI 兼容 Chat/SSE、服务鉴权、租户上下文、模态和重试边界。
+3. `contracts/json-schema/`：统一消息、Agent、Skill、Run、MCP、Memory、Knowledge、沙箱及公共类型。
+4. `contracts/asyncapi/kafka.asyncapi.json`：Topic、生产/消费、分区键、事件包络、版本和死信。
+5. `specs/modules/*/acceptance.feature`：未来 Harness 必须执行的 Given/When/Then 行为。
 
-如果服务边界、数据流或部署假设需要调整，应先修改第 2 步规格，再进入第 3 步。
+如果字段、状态、错误码、版本或重试策略需要调整，应先修改第 3 步契约，再进入第 4 步。
 
 ## 下一步（尚未开始）
 
-### 第 3 步：统一消息、API、工具和事件契约
+### 第 4 步：仓库骨架与最小工程门禁
 
-计划只创建：
+计划创建：
 
 ```text
-contracts/openapi/
-contracts/json-schema/
-contracts/asyncapi/
-specs/modules/*/acceptance.feature
+services/
+web/
+harness/
+tests/
+infra/
+reports/
 ```
 
-本步会讲清：
+本步会建立 Go、Python、Next.js 的空工程边界、统一命令、格式化、静态检查、规格检查、测试分层和 CI 最小门禁。
 
-- 统一消息、Chat/SSE、文件对象引用、LLM Provider、Agent/Skill、Memory、MCP 和 Kafka 事件字段。
-- OpenAPI、JSON Schema、AsyncAPI 和 Gherkin 分别解决什么问题。
-- 幂等键、版本、错误码、重试、超时和兼容策略如何表达。
-
-本步不会创建 Go/Python/Next.js 工程，也不会启动 Docker。
+本步不会实现渠道、RAG、LLM Gateway、Agent Runtime、Skill、Memory 或沙箱业务。
 
 ## 决策记录摘要
 

@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentforge.local/contracts/json-schema/error.schema.json",
+  "title": "AgentForge Error Response",
+  "$ref": "#/$defs/ErrorResponse",
+  "$defs": {
+    "ErrorCode": {
+      "type": "string",
+      "enum": [
+        "AUTHENTICATION_REQUIRED",
+        "FORBIDDEN",
+        "TENANT_MISMATCH",
+        "VALIDATION_FAILED",
+        "UNSUPPORTED_MEDIA_TYPE",
+        "PAYLOAD_TOO_LARGE",
+        "IDEMPOTENCY_CONFLICT",
+        "RESOURCE_NOT_FOUND",
+        "VERSION_CONFLICT",
+        "RATE_LIMITED",
+        "QUOTA_EXCEEDED",
+        "CONCURRENCY_LIMITED",
+        "DEADLINE_EXCEEDED",
+        "DEPENDENCY_TIMEOUT",
+        "DEPENDENCY_UNAVAILABLE",
+        "CONNECTION_RESET",
+        "SKILL_NOT_FOUND",
+        "SKILL_FORBIDDEN",
+        "SKILL_VERSION_INCOMPATIBLE",
+        "TOOL_FORBIDDEN",
+        "APPROVAL_REQUIRED",
+        "BUDGET_EXCEEDED",
+        "INVALID_STATE_TRANSITION",
+        "CONTENT_POLICY_BLOCKED",
+        "EVIDENCE_REQUIRED",
+        "INTERNAL_ERROR"
+      ]
+    },
+    "ErrorDetail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "reason"],
+      "properties": {
+        "field": { "type": "string", "maxLength": 256 },
+        "reason": { "type": "string", "maxLength": 512 }
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["error_id", "code", "message", "retryable", "trace_id", "occurred_at"],
+      "properties": {
+        "error_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "code": { "$ref": "#/$defs/ErrorCode" },
+        "message": {
+          "type": "string",
+          "description": "可向调用方展示的脱敏错误信息，不能包含凭证或高敏原文。",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "retryable": { "type": "boolean" },
+        "retry_after_ms": { "type": "integer", "minimum": 0, "maximum": 300000 },
+        "trace_id": { "$ref": "./common.schema.json#/$defs/TraceId" },
+        "occurred_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "details": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/ErrorDetail" }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "retryable": { "const": true } } },
+          "then": { "required": ["retry_after_ms"] }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "enum": [
+                  "AUTHENTICATION_REQUIRED",
+                  "FORBIDDEN",
+                  "TENANT_MISMATCH",
+                  "VALIDATION_FAILED",
+                  "IDEMPOTENCY_CONFLICT",
+                  "VERSION_CONFLICT",
+                  "SKILL_FORBIDDEN",
+                  "SKILL_VERSION_INCOMPATIBLE",
+                  "TOOL_FORBIDDEN",
+                  "APPROVAL_REQUIRED",
+                  "BUDGET_EXCEEDED",
+                  "INVALID_STATE_TRANSITION",
+                  "CONTENT_POLICY_BLOCKED",
+                  "EVIDENCE_REQUIRED"
+                ]
+              }
+            }
+          },
+          "then": { "properties": { "retryable": { "const": false } } }
+        }
+      ]
+    }
+  }
+}

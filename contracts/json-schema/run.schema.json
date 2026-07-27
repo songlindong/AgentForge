@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentforge.local/contracts/json-schema/run.schema.json",
+  "title": "AgentForge Run, Task, Step, Checkpoint and Event",
+  "$ref": "#/$defs/Run",
+  "$defs": {
+    "RunState": {
+      "type": "string",
+      "enum": ["created", "planning", "running", "waiting_approval", "retrying", "completed", "handoff", "failed", "cancelled"]
+    },
+    "TaskState": {
+      "type": "string",
+      "enum": ["pending", "ready", "running", "waiting_approval", "retrying", "succeeded", "failed", "skipped", "cancelled"]
+    },
+    "StepState": {
+      "type": "string",
+      "enum": ["pending", "running", "waiting_approval", "retrying", "succeeded", "failed", "skipped", "cancelled"]
+    },
+    "BudgetUsage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["steps", "tokens", "cost_minor_units", "peak_parallelism"],
+      "properties": {
+        "steps": { "type": "integer", "minimum": 0 },
+        "tokens": { "type": "integer", "minimum": 0 },
+        "cost_minor_units": { "type": "integer", "minimum": 0 },
+        "peak_parallelism": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "RunSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent", "skills", "model", "memory_policy_version", "knowledge_version", "captured_at"],
+      "properties": {
+        "agent": { "$ref": "#/$defs/VersionedReference" },
+        "skills": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/VersionedReference" }
+        },
+        "tools": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/VersionedReference" }
+        },
+        "model": { "$ref": "#/$defs/VersionedReference" },
+        "memory_policy_version": { "$ref": "./common.schema.json#/$defs/SemanticVersion" },
+        "knowledge_version": { "$ref": "./common.schema.json#/$defs/SemanticVersion" },
+        "captured_at": { "$ref": "./common.schema.json#/$defs/Timestamp" }
+      }
+    },
+    "VersionedReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "version": { "$ref": "./common.schema.json#/$defs/SemanticVersion" }
+      }
+    },
+    "Run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "tenant_id",
+        "user_id",
+        "conversation_id",
+        "message_id",
+        "channel",
+        "trace_id",
+        "state",
+        "deadline",
+        "budget_limits",
+        "budget_usage",
+        "snapshot",
+        "created_at",
+        "updated_at",
+        "version"
+      ],
+      "properties": {
+        "run_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "tenant_id": { "$ref": "./common.schema.json#/$defs/TenantId" },
+        "user_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "conversation_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "message_id": { "$ref": "./common.schema.json#/$defs/IdempotencyKey" },
+        "channel": { "type": "string", "enum": ["h5", "app"] },
+        "trace_id": { "$ref": "./common.schema.json#/$defs/TraceId" },
+        "state": { "$ref": "#/$defs/RunState" },
+        "deadline": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "budget_limits": { "$ref": "./common.schema.json#/$defs/BudgetLimits" },
+        "budget_usage": { "$ref": "#/$defs/BudgetUsage" },
+        "snapshot": { "$ref": "#/$defs/RunSnapshot" },
+        "failure_code": { "$ref": "./error.schema.json#/$defs/ErrorCode" },
+        "created_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "updated_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "version": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "Task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "run_id",
+        "tenant_id",
+        "task_type",
+        "state",
+        "depends_on",
+        "attempt",
+        "max_attempts",
+        "created_at",
+        "updated_at",
+        "version"
+      ],
+      "properties": {
+        "task_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "run_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "tenant_id": { "$ref": "./common.schema.json#/$defs/TenantId" },
+        "task_type": {
+          "type": "string",
+          "enum": ["route", "plan", "skill", "tool", "llm", "approval", "checkpoint", "verify", "handoff"]
+        },
+        "state": { "$ref": "#/$defs/TaskState" },
+        "depends_on": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "./common.schema.json#/$defs/Identifier" }
+        },
+        "condition": { "type": "string", "maxLength": 1024 },
+        "idempotency_key": { "$ref": "./common.schema.json#/$defs/IdempotencyKey" },
+        "side_effect": { "$ref": "./common.schema.json#/$defs/SideEffectLevel" },
+        "attempt": { "type": "integer", "minimum": 1 },
+        "max_attempts": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "lease_expires_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "next_retry_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "failure_code": { "$ref": "./error.schema.json#/$defs/ErrorCode" },
+        "created_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "updated_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "version": { "type": "integer", "minimum": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "side_effect": { "enum": ["reversible_write", "irreversible_write"] } }, "required": ["side_effect"] },
+          "then": { "required": ["idempotency_key"] }
+        }
+      ]
+    },
+    "Step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step_id", "task_id", "run_id", "tenant_id", "sequence", "step_type", "state", "attempt", "created_at"],
+      "properties": {
+        "step_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "task_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "run_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "tenant_id": { "$ref": "./common.schema.json#/$defs/TenantId" },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "step_type": {
+          "type": "string",
+          "enum": ["router", "planner", "skill", "mcp", "rag", "memory", "llm", "sandbox", "approval", "verification", "checkpoint"]
+        },
+        "state": { "$ref": "#/$defs/StepState" },
+        "skill": { "$ref": "#/$defs/VersionedReference" },
+        "tool": { "$ref": "#/$defs/VersionedReference" },
+        "model": { "$ref": "#/$defs/VersionedReference" },
+        "input_ref": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "output_ref": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "attempt": { "type": "integer", "minimum": 1 },
+        "failure_code": { "$ref": "./error.schema.json#/$defs/ErrorCode" },
+        "created_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "started_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "completed_at": { "$ref": "./common.schema.json#/$defs/Timestamp" }
+      }
+    },
+    "Checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checkpoint_id", "run_id", "tenant_id", "event_sequence", "state_ref", "snapshot_digest", "created_at"],
+      "properties": {
+        "checkpoint_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "run_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "tenant_id": { "$ref": "./common.schema.json#/$defs/TenantId" },
+        "event_sequence": { "type": "integer", "minimum": 0 },
+        "state_ref": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "snapshot_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "created_at": { "$ref": "./common.schema.json#/$defs/Timestamp" }
+      }
+    },
+    "RunEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "event_version", "run_id", "tenant_id", "trace_id", "sequence", "event_type", "attempt", "occurred_at", "data"],
+      "properties": {
+        "event_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "event_version": { "$ref": "./common.schema.json#/$defs/SemanticVersion" },
+        "run_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "tenant_id": { "$ref": "./common.schema.json#/$defs/TenantId" },
+        "trace_id": { "$ref": "./common.schema.json#/$defs/TraceId" },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "event_type": {
+          "type": "string",
+          "enum": [
+            "run.created", "plan.created", "task.ready", "task.started", "skill.resolved",
+            "checkpoint.saved", "task.succeeded", "task.retrying", "task.failed",
+            "approval.requested", "approval.granted", "approval.rejected",
+            "run.completed", "run.handoff", "run.failed", "run.cancelled"
+          ]
+        },
+        "from_state": { "type": "string" },
+        "to_state": { "type": "string" },
+        "task_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "step_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "attempt": { "type": "integer", "minimum": 1 },
+        "occurred_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "data": { "type": "object" }
+      }
+    }
+  }
+}

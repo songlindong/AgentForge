@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentforge.local/contracts/json-schema/mcp-tool.schema.json",
+  "title": "AgentForge MCP Tool Contract",
+  "$ref": "#/$defs/ToolManifest",
+  "$defs": {
+    "ToolManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool_id", "name", "version", "protocol", "server_ref", "status",
+        "tenant_visibility", "permissions", "input_schema_ref", "output_schema_ref",
+        "side_effect", "idempotency", "approval_policy", "timeout_policy", "retry_policy"
+      ],
+      "properties": {
+        "tool_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "name": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+        "description": { "type": "string", "maxLength": 2048 },
+        "version": { "$ref": "./common.schema.json#/$defs/SemanticVersion" },
+        "protocol": { "const": "mcp" },
+        "server_ref": { "type": "string", "pattern": "^mcp://[A-Za-z0-9._:/-]+$" },
+        "status": { "type": "string", "enum": ["draft", "published", "canary", "disabled", "retired"] },
+        "tenant_visibility": { "$ref": "./common.schema.json#/$defs/TenantVisibility" },
+        "permissions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9._:-]{1,128}$" }
+        },
+        "input_schema_ref": { "$ref": "./common.schema.json#/$defs/SchemaReference" },
+        "output_schema_ref": { "$ref": "./common.schema.json#/$defs/SchemaReference" },
+        "side_effect": { "$ref": "./common.schema.json#/$defs/SideEffectLevel" },
+        "idempotency": { "type": "string", "enum": ["not_applicable", "optional", "required"] },
+        "approval_policy": { "$ref": "./skill-manifest.schema.json#/$defs/ApprovalPolicy" },
+        "timeout_policy": { "$ref": "./common.schema.json#/$defs/TimeoutPolicy" },
+        "retry_policy": { "$ref": "./common.schema.json#/$defs/RetryPolicy" },
+        "freshness_seconds": { "type": "integer", "minimum": 0, "maximum": 86400 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "side_effect": { "enum": ["reversible_write", "irreversible_write"] } } },
+          "then": { "properties": { "idempotency": { "const": "required" } } }
+        }
+      ]
+    },
+    "ToolInvocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invocation_id", "tenant_id", "actor", "run_id", "task_id", "step_id",
+        "tool_id", "tool_version", "trace_id", "purpose", "authorization_decision_id",
+        "deadline", "arguments"
+      ],
+      "properties": {
+        "invocation_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "tenant_id": { "$ref": "./common.schema.json#/$defs/TenantId" },
+        "actor": { "$ref": "./common.schema.json#/$defs/Actor" },
+        "run_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "task_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "step_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "tool_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "tool_version": { "$ref": "./common.schema.json#/$defs/SemanticVersion" },
+        "trace_id": { "$ref": "./common.schema.json#/$defs/TraceId" },
+        "purpose": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "authorization_decision_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "approval_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "idempotency_key": { "$ref": "./common.schema.json#/$defs/IdempotencyKey" },
+        "deadline": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "arguments": { "type": "object" }
+      }
+    },
+    "ToolProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool_id", "tool_version", "observed_at", "source_system"],
+      "properties": {
+        "tool_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "tool_version": { "$ref": "./common.schema.json#/$defs/SemanticVersion" },
+        "observed_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "fresh_until": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "source_system": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "mock": { "type": "boolean" }
+      }
+    },
+    "ToolResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["invocation_id", "tenant_id", "trace_id", "status", "redaction_applied", "completed_at"],
+      "properties": {
+        "invocation_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "tenant_id": { "$ref": "./common.schema.json#/$defs/TenantId" },
+        "trace_id": { "$ref": "./common.schema.json#/$defs/TraceId" },
+        "status": { "type": "string", "enum": ["succeeded", "failed", "timeout", "denied", "approval_required"] },
+        "data": { "type": "object" },
+        "error": { "$ref": "./error.schema.json#/$defs/ErrorResponse" },
+        "provenance": { "$ref": "#/$defs/ToolProvenance" },
+        "redaction_applied": { "type": "boolean" },
+        "completed_at": { "$ref": "./common.schema.json#/$defs/Timestamp" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "succeeded" } } },
+          "then": { "required": ["data", "provenance"] }
+        },
+        {
+          "if": { "properties": { "status": { "enum": ["failed", "timeout", "denied", "approval_required"] } } },
+          "then": { "required": ["error"] }
+        }
+      ]
+    }
+  }
+}

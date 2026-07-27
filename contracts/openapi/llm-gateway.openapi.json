@@ -1,0 +1,135 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AgentForge Internal LLM Gateway API",
+    "version": "0.1.0",
+    "description": "供受信服务调用的 OpenAI 兼容 Chat/SSE 契约。终端 APP/H5 不得直接访问。图片只允许 agentforge://objects/{object_id} 受控引用。",
+    "x-compatibility-policy": {
+      "same_major": "保持 OpenAI 兼容字段语义，只新增可选字段或能力；模型和 Provider 差异由 Capability Manifest 表达。",
+      "breaking_change": "提升 Gateway API 主版本，并提供调用方迁移与契约回归测试。"
+    },
+    "x-retry-policy": "只有 RATE_LIMITED、DEPENDENCY_TIMEOUT、DEPENDENCY_UNAVAILABLE 和 CONNECTION_RESET 可以在预算内自动重试。"
+  },
+  "servers": [
+    { "url": "https://llm-gateway.internal.agentforge", "description": "内部服务地址占位符" }
+  ],
+  "security": [
+    { "serviceBearerAuth": [] }
+  ],
+  "paths": {
+    "/v1/chat/completions": {
+      "post": {
+        "operationId": "createChatCompletion",
+        "summary": "创建文本或受控图片 Chat Completion",
+        "description": "路由前校验服务身份、租户、模型权限、模态能力、并发和配额。只对允许的临时错误进行有限重试。",
+        "parameters": [
+          { "$ref": "#/components/parameters/TenantId" },
+          { "$ref": "#/components/parameters/TraceId" },
+          { "$ref": "#/components/parameters/RunId" },
+          { "$ref": "#/components/parameters/StepId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "../json-schema/llm-provider.schema.json#/$defs/ChatCompletionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "stream=false 返回 JSON；stream=true 返回 OpenAI 风格 SSE chunk 并以 data: [DONE] 结束",
+            "headers": {
+              "X-Trace-ID": { "schema": { "$ref": "../json-schema/common.schema.json#/$defs/TraceId" } },
+              "X-Provider-ID": { "schema": { "$ref": "../json-schema/common.schema.json#/$defs/Identifier" } },
+              "X-Model-ID": { "schema": { "$ref": "../json-schema/common.schema.json#/$defs/Identifier" } }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../json-schema/llm-provider.schema.json#/$defs/ChatCompletionResponse" }
+              },
+              "text/event-stream": {
+                "schema": { "type": "string" },
+                "x-event-data-schema": { "$ref": "../json-schema/llm-provider.schema.json#/$defs/ChatCompletionChunk" },
+                "x-stream-terminator": "data: [DONE]"
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/UnprocessableContent" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/Unavailable" },
+          "504": { "$ref": "#/components/responses/Timeout" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "serviceBearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "仅服务身份；不得透传终端用户 Access Token。"
+      }
+    },
+    "parameters": {
+      "TenantId": {
+        "name": "X-Tenant-ID",
+        "in": "header",
+        "required": true,
+        "schema": { "$ref": "../json-schema/common.schema.json#/$defs/TenantId" },
+        "description": "必须与服务身份授权上下文匹配。"
+      },
+      "TraceId": {
+        "name": "X-Trace-ID",
+        "in": "header",
+        "required": true,
+        "schema": { "$ref": "../json-schema/common.schema.json#/$defs/TraceId" }
+      },
+      "RunId": {
+        "name": "X-Run-ID",
+        "in": "header",
+        "required": true,
+        "schema": { "$ref": "../json-schema/common.schema.json#/$defs/Identifier" }
+      },
+      "StepId": {
+        "name": "X-Step-ID",
+        "in": "header",
+        "required": true,
+        "schema": { "$ref": "../json-schema/common.schema.json#/$defs/Identifier" }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": { "$ref": "../json-schema/common.schema.json#/$defs/IdempotencyKey" }
+      }
+    },
+    "responses": {
+      "BadRequest": { "$ref": "#/components/responses/Error400" },
+      "Unauthorized": { "$ref": "#/components/responses/Error401" },
+      "Forbidden": { "$ref": "#/components/responses/Error403" },
+      "Conflict": { "$ref": "#/components/responses/Error409" },
+      "UnprocessableContent": { "$ref": "#/components/responses/Error422" },
+      "TooManyRequests": { "$ref": "#/components/responses/Error429" },
+      "InternalError": { "$ref": "#/components/responses/Error500" },
+      "Unavailable": { "$ref": "#/components/responses/Error503" },
+      "Timeout": { "$ref": "#/components/responses/Error504" },
+      "Error400": { "description": "OpenAI 兼容请求无效", "content": { "application/json": { "schema": { "$ref": "../json-schema/llm-provider.schema.json#/$defs/OpenAIErrorResponse" } } } },
+      "Error401": { "description": "服务身份无效", "content": { "application/json": { "schema": { "$ref": "../json-schema/llm-provider.schema.json#/$defs/OpenAIErrorResponse" } } } },
+      "Error403": { "description": "租户、模型或模态无权限", "content": { "application/json": { "schema": { "$ref": "../json-schema/llm-provider.schema.json#/$defs/OpenAIErrorResponse" } } } },
+      "Error409": { "description": "幂等键或请求状态冲突", "content": { "application/json": { "schema": { "$ref": "../json-schema/llm-provider.schema.json#/$defs/OpenAIErrorResponse" } } } },
+      "Error422": { "description": "不受支持的能力组合或远程对象 URL", "content": { "application/json": { "schema": { "$ref": "../json-schema/llm-provider.schema.json#/$defs/OpenAIErrorResponse" } } } },
+      "Error429": { "description": "限流、配额或并发限制", "headers": { "Retry-After": { "schema": { "type": "integer", "minimum": 0 } } }, "content": { "application/json": { "schema": { "$ref": "../json-schema/llm-provider.schema.json#/$defs/OpenAIErrorResponse" } } } },
+      "Error500": { "description": "Gateway 内部错误", "content": { "application/json": { "schema": { "$ref": "../json-schema/llm-provider.schema.json#/$defs/OpenAIErrorResponse" } } } },
+      "Error503": { "description": "Provider 不可用或熔断", "headers": { "Retry-After": { "schema": { "type": "integer", "minimum": 0 } } }, "content": { "application/json": { "schema": { "$ref": "../json-schema/llm-provider.schema.json#/$defs/OpenAIErrorResponse" } } } },
+      "Error504": { "description": "连接、请求或流空闲超时", "content": { "application/json": { "schema": { "$ref": "../json-schema/llm-provider.schema.json#/$defs/OpenAIErrorResponse" } } } }
+    }
+  }
+}

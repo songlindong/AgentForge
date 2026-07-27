@@ -1,6 +1,6 @@
 # ADR-005：企业级 LLM Gateway
 
-状态：Proposed  
+状态：Accepted
 日期：2026-07-26
 
 ## 背景

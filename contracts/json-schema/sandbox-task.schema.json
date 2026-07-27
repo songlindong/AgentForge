@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentforge.local/contracts/json-schema/sandbox-task.schema.json",
+  "title": "AgentForge Sandbox Task Contract",
+  "$ref": "#/$defs/SandboxTaskRequest",
+  "$defs": {
+    "ResourceLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpu_millis", "memory_mb", "pids", "disk_mb", "timeout_ms", "kill_grace_ms"],
+      "properties": {
+        "cpu_millis": { "type": "integer", "minimum": 10, "maximum": 16000 },
+        "memory_mb": { "type": "integer", "minimum": 16, "maximum": 32768 },
+        "pids": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "disk_mb": { "type": "integer", "minimum": 1, "maximum": 102400 },
+        "timeout_ms": { "type": "integer", "minimum": 1, "maximum": 900000 },
+        "kill_grace_ms": { "type": "integer", "minimum": 0, "maximum": 5000 }
+      }
+    },
+    "NetworkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["deny", "allowlist"] },
+        "allowed_destinations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "maxLength": 255 }
+        },
+        "authorization_decision_id": { "$ref": "./common.schema.json#/$defs/Identifier" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "const": "deny" } } },
+          "then": { "not": { "required": ["allowed_destinations"] } }
+        },
+        {
+          "if": { "properties": { "mode": { "const": "allowlist" } } },
+          "then": { "required": ["allowed_destinations", "authorization_decision_id"], "properties": { "allowed_destinations": { "minItems": 1 } } }
+        }
+      ]
+    },
+    "SandboxTaskRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id", "tenant_id", "trace_id", "run_id", "step_id", "authorization_decision_id",
+        "sandbox_profile_id", "sandbox_profile_version", "image_ref",
+        "command", "run_as_user", "read_only_rootfs", "docker_socket_mounted",
+        "network", "resources", "input_objects", "cleanup_policy", "deadline"
+      ],
+      "properties": {
+        "task_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "tenant_id": { "$ref": "./common.schema.json#/$defs/TenantId" },
+        "trace_id": { "$ref": "./common.schema.json#/$defs/TraceId" },
+        "run_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "step_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "authorization_decision_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "sandbox_profile_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "sandbox_profile_version": { "$ref": "./common.schema.json#/$defs/SemanticVersion" },
+        "image_ref": { "type": "string", "pattern": "^[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$" },
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "items": { "type": "string", "maxLength": 4096 }
+        },
+        "environment_refs": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[A-Z_][A-Z0-9_]*$" },
+          "additionalProperties": { "type": "string", "pattern": "^(config|secret)://[A-Za-z0-9._:/-]+$" }
+        },
+        "run_as_user": { "type": "integer", "minimum": 1 },
+        "read_only_rootfs": { "const": true },
+        "docker_socket_mounted": { "const": false },
+        "network": { "$ref": "#/$defs/NetworkPolicy" },
+        "resources": { "$ref": "#/$defs/ResourceLimits" },
+        "input_objects": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "./file-object.schema.json#/$defs/ObjectReference" }
+        },
+        "output_contract_ref": { "$ref": "./common.schema.json#/$defs/SchemaReference" },
+        "cleanup_policy": { "const": "destroy_task_and_temporary_data" },
+        "deadline": { "$ref": "./common.schema.json#/$defs/Timestamp" }
+      }
+    },
+    "ResourceUsage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpu_millis", "peak_memory_mb", "peak_pids", "disk_mb", "duration_ms"],
+      "properties": {
+        "cpu_millis": { "type": "integer", "minimum": 0 },
+        "peak_memory_mb": { "type": "integer", "minimum": 0 },
+        "peak_pids": { "type": "integer", "minimum": 0 },
+        "disk_mb": { "type": "integer", "minimum": 0 },
+        "duration_ms": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "SandboxTaskResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "tenant_id", "trace_id", "status", "resource_usage", "cleanup_verified", "completed_at"],
+      "properties": {
+        "task_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "tenant_id": { "$ref": "./common.schema.json#/$defs/TenantId" },
+        "trace_id": { "$ref": "./common.schema.json#/$defs/TraceId" },
+        "status": { "type": "string", "enum": ["succeeded", "failed", "timed_out", "cancelled", "policy_denied"] },
+        "exit_code": { "type": "integer" },
+        "output_objects": {
+          "type": "array",
+          "items": { "$ref": "./file-object.schema.json#/$defs/ObjectReference" }
+        },
+        "error": { "$ref": "./error.schema.json#/$defs/ErrorResponse" },
+        "resource_usage": { "$ref": "#/$defs/ResourceUsage" },
+        "cleanup_verified": { "type": "boolean" },
+        "completed_at": { "$ref": "./common.schema.json#/$defs/Timestamp" }
+      }
+    }
+  }
+}

@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentforge.local/contracts/json-schema/common.schema.json",
+  "title": "AgentForge Common Contract Types",
+  "description": "跨 HTTP、Kafka、Agent、Skill、MCP 和沙箱契约复用的基础类型。",
+  "$defs": {
+    "Identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "TenantId": {
+      "allOf": [
+        { "$ref": "#/$defs/Identifier" },
+        { "description": "服务端从已验证身份解析的租户标识，不能直接信任客户端声明。" }
+      ]
+    },
+    "TraceId": {
+      "type": "string",
+      "description": "W3C Trace Context 的 32 位小写十六进制 trace-id。",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "SemanticVersion": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "VersionConstraint": {
+      "type": "string",
+      "description": "SemVer 约束，例如 ^1.2.0、~1.2.0 或精确版本 1.2.3。",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "IdempotencyKey": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "SchemaReference": {
+      "type": "string",
+      "format": "uri-reference",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "TenantVisibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["platform", "allowlist", "tenant"]
+        },
+        "tenant_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/TenantId" }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "const": "allowlist" } } },
+          "then": { "required": ["tenant_ids"], "properties": { "tenant_ids": { "minItems": 1 } } }
+        },
+        {
+          "if": { "properties": { "mode": { "enum": ["platform", "tenant"] } } },
+          "then": { "not": { "required": ["tenant_ids"] } }
+        }
+      ]
+    },
+    "SideEffectLevel": {
+      "type": "string",
+      "enum": ["none", "read", "reversible_write", "irreversible_write"]
+    },
+    "RetryPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_attempts", "initial_backoff_ms", "max_backoff_ms", "multiplier", "retryable_errors"],
+      "properties": {
+        "max_attempts": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "initial_backoff_ms": { "type": "integer", "minimum": 0, "maximum": 60000 },
+        "max_backoff_ms": { "type": "integer", "minimum": 0, "maximum": 300000 },
+        "multiplier": { "type": "number", "minimum": 1, "maximum": 10 },
+        "retryable_errors": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["RATE_LIMITED", "DEPENDENCY_TIMEOUT", "DEPENDENCY_UNAVAILABLE", "CONNECTION_RESET"]
+          }
+        }
+      }
+    },
+    "TimeoutPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["connect_ms", "request_ms", "overall_ms"],
+      "properties": {
+        "connect_ms": { "type": "integer", "minimum": 1, "maximum": 60000 },
+        "request_ms": { "type": "integer", "minimum": 1, "maximum": 300000 },
+        "stream_idle_ms": { "type": "integer", "minimum": 1, "maximum": 300000 },
+        "overall_ms": { "type": "integer", "minimum": 1, "maximum": 900000 }
+      }
+    },
+    "BudgetLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_steps", "deadline_ms", "max_tokens", "max_cost_minor_units", "max_parallelism"],
+      "properties": {
+        "max_steps": { "type": "integer", "minimum": 1, "maximum": 256 },
+        "deadline_ms": { "type": "integer", "minimum": 1, "maximum": 3600000 },
+        "max_tokens": { "type": "integer", "minimum": 1 },
+        "max_cost_minor_units": { "type": "integer", "minimum": 0 },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$", "default": "CNY" },
+        "max_parallelism": { "type": "integer", "minimum": 1, "maximum": 64 }
+      }
+    },
+    "Actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actor_type", "actor_id"],
+      "properties": {
+        "actor_type": {
+          "type": "string",
+          "enum": ["user", "operator", "service", "agent", "system"]
+        },
+        "actor_id": { "$ref": "#/$defs/Identifier" }
+      }
+    }
+  }
+}

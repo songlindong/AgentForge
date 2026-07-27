@@ -1,6 +1,6 @@
 # ADR-007：Docker Compose 起步并保留扩容路径
 
-状态：Proposed  
+状态：Accepted
 日期：2026-07-26
 
 ## 背景

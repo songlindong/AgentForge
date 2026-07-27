@@ -1,6 +1,6 @@
 # ADR-006：Docker 沙箱优先
 
-状态：Proposed  
+状态：Accepted
 日期：2026-07-26
 
 ## 背景

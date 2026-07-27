@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentforge.local/contracts/json-schema/event-envelope.schema.json",
+  "title": "AgentForge Kafka Event Envelope",
+  "$ref": "#/$defs/EventEnvelope",
+  "$defs": {
+    "EventEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id", "event_type", "event_version", "tenant_id", "partition_key",
+        "idempotency_key", "correlation_id", "producer", "occurred_at", "trace_id", "attempt", "data"
+      ],
+      "properties": {
+        "event_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "event_type": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:\\.[a-z0-9]+)+$", "maxLength": 128 },
+        "event_version": { "$ref": "./common.schema.json#/$defs/SemanticVersion" },
+        "tenant_id": { "$ref": "./common.schema.json#/$defs/TenantId" },
+        "partition_key": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "idempotency_key": { "$ref": "./common.schema.json#/$defs/IdempotencyKey" },
+        "correlation_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "causation_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "producer": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "occurred_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "trace_id": { "$ref": "./common.schema.json#/$defs/TraceId" },
+        "attempt": { "type": "integer", "minimum": 1 },
+        "data": { "type": "object" }
+      }
+    },
+    "KafkaHeaders": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_type", "schema_id", "tenant_id", "traceparent", "idempotency_key"],
+      "properties": {
+        "content_type": { "const": "application/json" },
+        "schema_id": { "type": "string", "format": "uri-reference" },
+        "tenant_id": { "$ref": "./common.schema.json#/$defs/TenantId" },
+        "traceparent": { "type": "string", "pattern": "^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$" },
+        "idempotency_key": { "$ref": "./common.schema.json#/$defs/IdempotencyKey" }
+      }
+    },
+    "AuditEventPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audit_id", "tenant_id", "actor", "action", "resource_type", "resource_id",
+        "decision", "reason", "trace_id", "created_at"
+      ],
+      "properties": {
+        "audit_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "tenant_id": { "$ref": "./common.schema.json#/$defs/TenantId" },
+        "actor": { "$ref": "./common.schema.json#/$defs/Actor" },
+        "action": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "resource_type": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "resource_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "agent_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "skill_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "tool_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "decision": { "type": "string", "enum": ["allowed", "denied", "approval_required", "completed", "failed"] },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "input_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "trace_id": { "$ref": "./common.schema.json#/$defs/TraceId" },
+        "created_at": { "$ref": "./common.schema.json#/$defs/Timestamp" }
+      }
+    },
+    "DeadLetterPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dead_letter_id", "tenant_id", "original_topic", "original_partition_key",
+        "original_event_id", "original_event_version", "failure_code", "failure_summary",
+        "attempts", "trace_id", "failed_at"
+      ],
+      "properties": {
+        "dead_letter_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "tenant_id": { "$ref": "./common.schema.json#/$defs/TenantId" },
+        "original_topic": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "original_partition_key": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "original_event_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "original_event_version": { "$ref": "./common.schema.json#/$defs/SemanticVersion" },
+        "original_payload_ref": { "type": "string", "pattern": "^deadletter://[A-Za-z0-9._:/-]+$" },
+        "failure_code": { "$ref": "./error.schema.json#/$defs/ErrorCode" },
+        "failure_summary": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "attempts": { "type": "integer", "minimum": 1 },
+        "trace_id": { "$ref": "./common.schema.json#/$defs/TraceId" },
+        "failed_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "replay_status": { "type": "string", "enum": ["not_requested", "pending_review", "approved", "replayed", "rejected"] }
+      }
+    }
+  }
+}

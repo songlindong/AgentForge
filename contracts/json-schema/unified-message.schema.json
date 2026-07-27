@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentforge.local/contracts/json-schema/unified-message.schema.json",
+  "title": "AgentForge Unified Channel Message",
+  "$ref": "#/$defs/UnifiedMessageEnvelope",
+  "$defs": {
+    "Channel": {
+      "type": "string",
+      "enum": ["h5", "app"]
+    },
+    "MessageStatus": {
+      "type": "string",
+      "enum": ["received", "processing", "generated", "sending", "delivered", "failed", "manual_handoff"]
+    },
+    "ChannelMessageRequest": {
+      "type": "object",
+      "description": "APP/H5 客户端请求。tenant_id、user_id 和最终 channel 由认证及服务端适配器解析。",
+      "additionalProperties": false,
+      "required": ["message_id", "conversation_id", "channel", "content", "client_timestamp"],
+      "properties": {
+        "message_id": { "$ref": "./common.schema.json#/$defs/IdempotencyKey" },
+        "conversation_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "channel": { "$ref": "#/$defs/Channel" },
+        "content": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "$ref": "./content-part.schema.json#/$defs/UserInputPart" }
+        },
+        "client_timestamp": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "locale": { "type": "string", "maxLength": 32 },
+        "metadata": {
+          "type": "object",
+          "description": "低敏客户端元数据；服务端必须使用允许列表过滤。",
+          "maxProperties": 16,
+          "additionalProperties": { "type": ["string", "number", "boolean", "null"] }
+        }
+      }
+    },
+    "UnifiedMessageEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_id",
+        "channel",
+        "tenant_id",
+        "user_id",
+        "conversation_id",
+        "message_type",
+        "content",
+        "status",
+        "timestamp",
+        "trace_id"
+      ],
+      "properties": {
+        "message_id": { "$ref": "./common.schema.json#/$defs/IdempotencyKey" },
+        "channel": { "$ref": "#/$defs/Channel" },
+        "tenant_id": { "$ref": "./common.schema.json#/$defs/TenantId" },
+        "user_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "conversation_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "message_type": {
+          "type": "string",
+          "enum": ["user_input", "assistant_output", "system_event", "handoff"]
+        },
+        "content": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "$ref": "./content-part.schema.json#/$defs/ContentPart" }
+        },
+        "status": { "$ref": "#/$defs/MessageStatus" },
+        "timestamp": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "trace_id": { "$ref": "./common.schema.json#/$defs/TraceId" },
+        "run_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "sequence": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "ChannelMessageAccepted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_id",
+        "conversation_id",
+        "status",
+        "events_url",
+        "trace_id",
+        "accepted_at",
+        "idempotent_replay"
+      ],
+      "properties": {
+        "message_id": { "$ref": "./common.schema.json#/$defs/IdempotencyKey" },
+        "conversation_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "status": { "const": "received" },
+        "events_url": { "type": "string", "format": "uri-reference" },
+        "trace_id": { "$ref": "./common.schema.json#/$defs/TraceId" },
+        "accepted_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "idempotent_replay": { "type": "boolean" }
+      }
+    },
+    "ChannelSseEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "event_type", "message_id", "conversation_id", "sequence", "trace_id", "timestamp", "data"],
+      "properties": {
+        "event_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "event_type": {
+          "type": "string",
+          "enum": [
+            "message.accepted",
+            "run.started",
+            "content.delta",
+            "citation.added",
+            "response.completed",
+            "handoff.required",
+            "error",
+            "heartbeat"
+          ]
+        },
+        "message_id": { "$ref": "./common.schema.json#/$defs/IdempotencyKey" },
+        "conversation_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "run_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "trace_id": { "$ref": "./common.schema.json#/$defs/TraceId" },
+        "timestamp": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "data": { "type": "object" }
+      }
+    },
+    "CancelRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason"],
+      "properties": {
+        "reason": {
+          "type": "string",
+          "enum": ["client_disconnected", "user_cancelled", "deadline_exceeded"]
+        }
+      }
+    },
+    "CancelAccepted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["message_id", "status", "trace_id", "accepted_at"],
+      "properties": {
+        "message_id": { "$ref": "./common.schema.json#/$defs/IdempotencyKey" },
+        "status": { "const": "cancelling" },
+        "trace_id": { "$ref": "./common.schema.json#/$defs/TraceId" },
+        "accepted_at": { "$ref": "./common.schema.json#/$defs/Timestamp" }
+      }
+    }
+  }
+}

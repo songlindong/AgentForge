@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentforge.local/contracts/json-schema/content-part.schema.json",
+  "title": "AgentForge Unified Content Part",
+  "$ref": "#/$defs/ContentPart",
+  "$defs": {
+    "TextPart": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "text"],
+      "properties": {
+        "type": { "const": "text" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 32768 },
+        "language": { "type": "string", "maxLength": 32 }
+      }
+    },
+    "ObjectReferencePart": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "modality", "object"],
+      "properties": {
+        "type": { "const": "object_ref" },
+        "modality": { "type": "string", "enum": ["document", "image", "audio"] },
+        "object": { "$ref": "./file-object.schema.json#/$defs/ObjectReference" },
+        "alt_text": { "type": "string", "maxLength": 1024 }
+      }
+    },
+    "CitationPart": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "citation_id", "document_id", "document_version", "source", "quote"],
+      "properties": {
+        "type": { "const": "citation" },
+        "citation_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "document_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "document_version": { "type": "integer", "minimum": 1 },
+        "chunk_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "source": { "$ref": "./file-object.schema.json#/$defs/ObjectReference" },
+        "quote": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "retrieval_score": { "type": "number" },
+        "rerank_score": { "type": "number" }
+      }
+    },
+    "ContentPart": {
+      "oneOf": [
+        { "$ref": "#/$defs/TextPart" },
+        { "$ref": "#/$defs/ObjectReferencePart" },
+        { "$ref": "#/$defs/CitationPart" }
+      ]
+    },
+    "UserInputPart": {
+      "oneOf": [
+        { "$ref": "#/$defs/TextPart" },
+        { "$ref": "#/$defs/ObjectReferencePart" }
+      ]
+    },
+    "AssistantOutputPart": {
+      "oneOf": [
+        { "$ref": "#/$defs/TextPart" },
+        { "$ref": "#/$defs/CitationPart" }
+      ]
+    }
+  }
+}

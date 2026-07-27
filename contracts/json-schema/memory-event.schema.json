@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentforge.local/contracts/json-schema/memory-event.schema.json",
+  "title": "AgentForge Memory Lifecycle Event Payload",
+  "$ref": "#/$defs/MemoryEventPayload",
+  "$defs": {
+    "MemoryEventPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "memory_id", "tenant_id", "user_id", "conversation_id", "memory_type",
+        "operation", "reason", "source", "content_ref", "content_digest",
+        "retention_policy_id", "occurred_at"
+      ],
+      "properties": {
+        "memory_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "tenant_id": { "$ref": "./common.schema.json#/$defs/TenantId" },
+        "user_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "conversation_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "memory_type": { "type": "string", "enum": ["short_term", "summary", "structured", "semantic"] },
+        "operation": { "type": "string", "enum": ["write_requested", "written", "deleted", "expired", "failed"] },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["run_id", "message_id"],
+          "properties": {
+            "run_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+            "message_id": { "$ref": "./common.schema.json#/$defs/IdempotencyKey" },
+            "step_id": { "$ref": "./common.schema.json#/$defs/Identifier" }
+          }
+        },
+        "content_ref": {
+          "type": "string",
+          "description": "受控存储引用；事件中不得携带高敏 Memory 原文。",
+          "pattern": "^memory://[A-Za-z0-9._:/-]+$"
+        },
+        "content_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "classification": { "type": "string", "enum": ["internal", "confidential", "restricted"] },
+        "retention_policy_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "expires_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "occurred_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "failure_code": { "$ref": "./error.schema.json#/$defs/ErrorCode" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "operation": { "const": "failed" } } },
+          "then": { "required": ["failure_code"] }
+        }
+      ]
+    }
+  }
+}

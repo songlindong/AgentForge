@@ -1,6 +1,6 @@
 # ADR-003：Kafka 投递、顺序与幂等
 
-状态：Proposed  
+状态：Accepted
 日期：2026-07-26
 
 ## 背景

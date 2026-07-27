@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentforge.local/contracts/json-schema/skill-manifest.schema.json",
+  "title": "AgentForge Skill Manifest",
+  "$ref": "#/$defs/SkillManifest",
+  "$defs": {
+    "Dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skill_id", "version_constraint", "required"],
+      "properties": {
+        "skill_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "version_constraint": { "$ref": "./common.schema.json#/$defs/VersionConstraint" },
+        "required": { "type": "boolean" }
+      }
+    },
+    "Implementation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "prompt_ref"],
+          "properties": {
+            "type": { "const": "prompt" },
+            "prompt_ref": { "type": "string", "pattern": "^prompt://[A-Za-z0-9._:/-]+$" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "retriever_ref"],
+          "properties": {
+            "type": { "const": "rag" },
+            "retriever_ref": { "type": "string", "pattern": "^rag://[A-Za-z0-9._:/-]+$" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "tool_id", "server_ref"],
+          "properties": {
+            "type": { "const": "mcp" },
+            "tool_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+            "server_ref": { "type": "string", "pattern": "^mcp://[A-Za-z0-9._:/-]+$" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "sandbox_profile_id", "image_ref"],
+          "properties": {
+            "type": { "const": "sandbox" },
+            "sandbox_profile_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+            "image_ref": { "type": "string", "pattern": "^[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "handler_ref"],
+          "properties": {
+            "type": { "const": "deterministic" },
+            "handler_ref": { "type": "string", "pattern": "^handler://[A-Za-z0-9._:/-]+$" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "workflow_ref"],
+          "properties": {
+            "type": { "const": "composite" },
+            "workflow_ref": { "type": "string", "pattern": "^workflow://[A-Za-z0-9._:/-]+$" }
+          }
+        }
+      ]
+    },
+    "ApprovalPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["never", "on_write", "always", "policy"] },
+        "policy_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "expires_ms": { "type": "integer", "minimum": 1000, "maximum": 86400000 }
+      },
+      "if": { "properties": { "mode": { "const": "policy" } } },
+      "then": { "required": ["policy_id"] }
+    },
+    "ConcurrencyPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_per_tenant", "max_global"],
+      "properties": {
+        "max_per_tenant": { "type": "integer", "minimum": 1 },
+        "max_global": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "SkillManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_schema_version",
+        "skill_id",
+        "name",
+        "version",
+        "status",
+        "tenant_visibility",
+        "permissions",
+        "input_schema_ref",
+        "output_schema_ref",
+        "implementation",
+        "side_effect",
+        "idempotency",
+        "approval_policy",
+        "timeout_policy",
+        "retry_policy",
+        "concurrency_policy",
+        "dependencies",
+        "acceptance_scenarios"
+      ],
+      "properties": {
+        "manifest_schema_version": { "$ref": "./common.schema.json#/$defs/SemanticVersion" },
+        "skill_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "description": { "type": "string", "maxLength": 2048 },
+        "version": { "$ref": "./common.schema.json#/$defs/SemanticVersion" },
+        "status": { "type": "string", "enum": ["draft", "published", "canary", "disabled", "retired"] },
+        "tenant_visibility": { "$ref": "./common.schema.json#/$defs/TenantVisibility" },
+        "permissions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9._:-]{1,128}$" }
+        },
+        "input_schema_ref": { "$ref": "./common.schema.json#/$defs/SchemaReference" },
+        "output_schema_ref": { "$ref": "./common.schema.json#/$defs/SchemaReference" },
+        "implementation": { "$ref": "#/$defs/Implementation" },
+        "side_effect": { "$ref": "./common.schema.json#/$defs/SideEffectLevel" },
+        "idempotency": { "type": "string", "enum": ["not_applicable", "optional", "required"] },
+        "approval_policy": { "$ref": "#/$defs/ApprovalPolicy" },
+        "timeout_policy": { "$ref": "./common.schema.json#/$defs/TimeoutPolicy" },
+        "retry_policy": { "$ref": "./common.schema.json#/$defs/RetryPolicy" },
+        "concurrency_policy": { "$ref": "#/$defs/ConcurrencyPolicy" },
+        "dependencies": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/Dependency" }
+        },
+        "acceptance_scenarios": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+        },
+        "rollback_to_version": { "$ref": "./common.schema.json#/$defs/SemanticVersion" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "side_effect": { "enum": ["reversible_write", "irreversible_write"] } } },
+          "then": { "properties": { "idempotency": { "const": "required" } } }
+        },
+        {
+          "if": { "properties": { "side_effect": { "const": "irreversible_write" } } },
+          "then": { "properties": { "approval_policy": { "properties": { "mode": { "enum": ["always", "policy"] } } } } }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentforge.local/contracts/json-schema/file-object.schema.json",
+  "title": "AgentForge Controlled File Object",
+  "$ref": "#/$defs/FileObject",
+  "$defs": {
+    "BoundingBox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height", "coordinate_space"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0 },
+        "y": { "type": "number", "minimum": 0 },
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "coordinate_space": { "type": "string", "enum": ["normalized_0_1", "pixels"] },
+        "page_width": { "type": "number", "exclusiveMinimum": 0 },
+        "page_height": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "ObjectReference": {
+      "type": "object",
+      "description": "租户内受控对象引用。不得替换为任意 http/https URL。",
+      "additionalProperties": false,
+      "required": ["object_id", "object_version", "media_type", "purpose"],
+      "properties": {
+        "object_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "object_version": { "type": "integer", "minimum": 1 },
+        "media_type": {
+          "type": "string",
+          "enum": ["application/pdf", "image/png", "image/jpeg", "audio/wav", "audio/mpeg"]
+        },
+        "purpose": {
+          "type": "string",
+          "enum": ["knowledge_source", "chat_attachment", "citation_source", "sandbox_input", "sandbox_output"]
+        },
+        "page_number": { "type": "integer", "minimum": 1 },
+        "bounding_box": { "$ref": "#/$defs/BoundingBox" }
+      },
+      "dependentRequired": {
+        "bounding_box": ["page_number"]
+      }
+    },
+    "FileObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "object_id",
+        "tenant_id",
+        "object_version",
+        "purpose",
+        "media_type",
+        "byte_size",
+        "sha256",
+        "status",
+        "created_at"
+      ],
+      "properties": {
+        "object_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "tenant_id": { "$ref": "./common.schema.json#/$defs/TenantId" },
+        "object_version": { "type": "integer", "minimum": 1 },
+        "purpose": {
+          "type": "string",
+          "enum": ["knowledge_source", "chat_attachment"]
+        },
+        "media_type": {
+          "type": "string",
+          "enum": ["application/pdf", "image/png", "image/jpeg"]
+        },
+        "sanitized_filename": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "byte_size": { "type": "integer", "minimum": 1, "maximum": 104857600 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "page_count": { "type": "integer", "minimum": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["uploaded", "scanning", "accepted", "rejected", "processing", "ready", "failed"]
+        },
+        "rejection_code": {
+          "type": "string",
+          "enum": [
+            "MIME_MAGIC_MISMATCH",
+            "UNSUPPORTED_MEDIA_TYPE",
+            "FILE_TOO_LARGE",
+            "PAGE_LIMIT_EXCEEDED",
+            "DECOMPRESSION_LIMIT_EXCEEDED",
+            "MALWARE_DETECTED",
+            "INVALID_FILE"
+          ]
+        },
+        "exif_removed": { "type": "boolean" },
+        "created_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "expires_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "trace_id": { "$ref": "./common.schema.json#/$defs/TraceId" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "rejected" } } },
+          "then": { "required": ["rejection_code"] }
+        }
+      ]
+    }
+  }
+}

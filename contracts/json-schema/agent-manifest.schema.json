@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentforge.local/contracts/json-schema/agent-manifest.schema.json",
+  "title": "AgentForge Agent Manifest",
+  "$ref": "#/$defs/AgentManifest",
+  "$defs": {
+    "SkillBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skill_id", "version_constraint", "required"],
+      "properties": {
+        "skill_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "version_constraint": { "$ref": "./common.schema.json#/$defs/VersionConstraint" },
+        "required": { "type": "boolean" },
+        "alias": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" }
+      }
+    },
+    "ModelPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_modalities", "allow_fallback"],
+      "properties": {
+        "allowed_model_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "./common.schema.json#/$defs/Identifier" }
+        },
+        "required_modalities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "enum": ["text", "image", "audio_input", "audio_output"] }
+        },
+        "allow_fallback": { "type": "boolean" },
+        "data_residency": { "type": "string", "enum": ["local_only", "approved_regions", "provider_policy"] }
+      }
+    },
+    "MemoryPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["short_term", "summary", "structured", "semantic", "max_context_tokens"],
+      "properties": {
+        "short_term": { "type": "boolean" },
+        "summary": { "type": "boolean" },
+        "structured": { "type": "boolean" },
+        "semantic": { "type": "boolean" },
+        "max_context_tokens": { "type": "integer", "minimum": 1 },
+        "retention_policy_id": { "$ref": "./common.schema.json#/$defs/Identifier" }
+      }
+    },
+    "AgentManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_schema_version",
+        "agent_id",
+        "name",
+        "version",
+        "goal",
+        "status",
+        "tenant_visibility",
+        "permissions",
+        "skills",
+        "model_policy",
+        "memory_policy",
+        "budget_limits",
+        "orchestration_modes"
+      ],
+      "properties": {
+        "manifest_schema_version": { "$ref": "./common.schema.json#/$defs/SemanticVersion" },
+        "agent_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "description": { "type": "string", "maxLength": 2048 },
+        "version": { "$ref": "./common.schema.json#/$defs/SemanticVersion" },
+        "goal": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "status": { "type": "string", "enum": ["draft", "published", "canary", "disabled", "retired"] },
+        "tenant_visibility": { "$ref": "./common.schema.json#/$defs/TenantVisibility" },
+        "permissions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9._:-]{1,128}$" }
+        },
+        "skills": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/SkillBinding" }
+        },
+        "model_policy": { "$ref": "#/$defs/ModelPolicy" },
+        "memory_policy": { "$ref": "#/$defs/MemoryPolicy" },
+        "budget_limits": { "$ref": "./common.schema.json#/$defs/BudgetLimits" },
+        "orchestration_modes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["sequential", "parallel", "conditional", "dag", "human_approval", "checkpoint_recovery"]
+          }
+        },
+        "max_delegation_depth": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "acceptance_scenarios": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+        }
+      }
+    }
+  }
+}
