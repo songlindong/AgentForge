@@ -116,9 +116,9 @@
 
 ### 第 11 步：Agent Runtime 内核、Agent 编排与 Skill Registry
 
-- 本步重点：运行上下文、Agent loop、状态机、Agent Registry、Router、Planner、Orchestrator、Skill Registry、终止条件、预算和确定性回放。
-- 交付物：KnowledgeAgent、ProductAgent、ContractAgent 和 ComplianceAgent；支持 Agent/Skill 注册发现、顺序/并行/条件编排、步数/时间/Token预算、人工审批和运行事件。
-- 验收标准：业务意图路由到正确 Agent；Agent 只能发现有权限且版本兼容的 Skill；顺序、并行、条件和审批节点按规格执行；失败和超预算场景可回放；不存在无限循环。
+- 本步重点：运行上下文、Agent loop、状态机、Agent Registry、分层意图识别、Policy Router、Planner、Orchestrator、Skill Registry、终止条件、预算和确定性回放。意图链路固定覆盖可信上下文、安全强制路由、高精度规则、受限语义分类、置信度校准以及权限与能力决策。
+- 交付物：版本化层级/多意图分类表、Intent Registry、IntentDecision JSON Schema、规则与语义分类器、实体抽取、决策融合、澄清/未知/转人工策略；KnowledgeAgent、ProductAgent、ContractAgent 和 ComplianceAgent；支持 Agent/Skill 注册发现、顺序/并行/条件编排、步数/时间/Token 预算、人工审批和运行事件。
+- 验收标准：版本化黄金集能够重复计算主意图准确率、Macro-F1、多意图 F1、实体 F1、Agent 路由正确率、澄清/拒识质量、P95 延迟和成本；具体门限由当前系统基线确定并进入发布规格。安全规则与模型冲突时安全结果优先，未授权路由数量为 0；Agent 只能发现有权限且版本兼容的 Skill；顺序、并行、条件和审批节点按规格执行；失败和超预算场景可回放；不存在无限循环。
 - 暂停点：先完成受控编排内核和确定性 Agent，不扩展无边界的自主 Multi-Agent 协作。
 
 ### 第 12 步：金融 Skill、MCP、DAG 与 Checkpoint

@@ -173,6 +173,16 @@
 - 完整 `python tools/check.py ci`：通过；检查 17 个 JSON 契约、10 个中文 Feature、54 个场景，并通过结构、格式、Compose 配置、静态、Harness 和全仓测试。
 - `git diff --check`：通过。
 
+## 已记录的后续实施约束
+
+### 分层意图识别与安全路由
+
+- [x] 2026-07-28 在第 6 步暂停期间补充规划级约束，没有推进第 7 步或提前实现第 11 步。
+- [x] 在 `docs/project-context.md` 固定 L0～L5 分层链路，以及安全优先、模型与 Policy Router 职责分离、置信度校准、多意图和可回放要求。
+- [x] 在 `docs/development-roadmap.md` 补充第 11 步的 Intent Registry、IntentDecision、实体抽取、融合决策、澄清/拒识和评测交付物。
+- [x] 当前只记录不可遗漏的设计边界；详细 SDD、JSON Schema、ADR、Gherkin、黄金集扩展和实现仍必须等第 11 步开始后完成。
+- [x] 第 6 步完成状态、暂停点及下一候选第 7 步保持不变。
+
 ## 需要你在继续前确认
 
 阅读以下第 6 步文件后，确认确定性场景和验证边界是否符合要求：
