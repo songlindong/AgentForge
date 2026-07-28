@@ -1,0 +1,8 @@
+{
+  "expected_rejection": "VALIDATION_FAILED",
+  "filenames": [
+    "../contract.pdf",
+    "..\\contract.pdf",
+    "/absolute/policy.pdf"
+  ]
+}

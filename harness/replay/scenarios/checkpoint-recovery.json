@@ -1,0 +1,12 @@
+{
+  "scenario_id": "checkpoint-recovery",
+  "risk": "checkpoint_recovery",
+  "context": {"tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000006"},
+  "snapshot": {"agent": {"id": "finance-customer-service", "version": "1.0.0"}, "skills": [{"id": "application-status-query", "version": "1.0.0"}], "model": {"id": "fake-finance-model", "version": "1.0.0"}, "knowledge_version": "1.0.0"},
+  "events": [
+    {"sequence": 0, "tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000006", "event_type": "side_effect_completed", "status": "running", "idempotency_key": "status-query-0001", "replayed": false},
+    {"sequence": 1, "tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000006", "event_type": "checkpoint_saved", "status": "running"},
+    {"sequence": 2, "tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000006", "event_type": "run_completed", "status": "completed"}
+  ],
+  "expected": {"terminal_status": "completed", "side_effect_execution_count": 1}
+}

@@ -1,0 +1,2 @@
+{"expected_answer": "提前三个工作日。", "expected_document_id": "synthetic-loan-policy", "expected_page_number": 1, "must_quote": "提前还款需提前三个工作日申请", "question": "提前还款应提前多久申请？", "question_id": "golden-001", "tenant_id": "tenant-0001"}
+{"expected_action": "loan_application_status", "must_not_answer_from_document": true, "question": "我的实际审批状态是什么？", "question_id": "golden-002", "tenant_id": "tenant-0001"}

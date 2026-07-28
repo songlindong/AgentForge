@@ -1,0 +1,18 @@
+{
+  "cases": [
+    {
+      "declared_pages": 10001,
+      "name": "page_limit"
+    },
+    {
+      "declared_ratio": 10000,
+      "name": "decompression_ratio"
+    },
+    {
+      "declared_pixels": 1000000000,
+      "name": "pixel_limit"
+    }
+  ],
+  "expected_rejection": "PAYLOAD_TOO_LARGE",
+  "payloads_included": false
+}

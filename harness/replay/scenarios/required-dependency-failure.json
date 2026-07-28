@@ -1,0 +1,11 @@
+{
+  "scenario_id": "required-dependency-failure",
+  "risk": "required_dependency_failure",
+  "context": {"tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000004"},
+  "snapshot": {"agent": {"id": "finance-customer-service", "version": "1.0.0"}, "skills": [{"id": "loan-rate-query", "version": "1.0.0"}], "model": {"id": "fake-finance-model", "version": "1.0.0"}, "knowledge_version": "1.0.0"},
+  "events": [
+    {"sequence": 0, "tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000004", "event_type": "dependency_invoked", "status": "running"},
+    {"sequence": 1, "tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000004", "event_type": "handoff_created", "status": "handoff", "error_code": "DEPENDENCY_UNAVAILABLE"}
+  ],
+  "expected": {"terminal_status": "handoff", "error_code": "DEPENDENCY_UNAVAILABLE"}
+}

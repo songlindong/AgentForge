@@ -1,0 +1,66 @@
+{
+  "coordinate_space": "normalized_top_left",
+  "regions": [
+    {
+      "bounding_box": [
+        0.08,
+        0.16,
+        0.92,
+        0.27
+      ],
+      "content_type": "text",
+      "document_id": "synthetic-loan-policy",
+      "document_version": "1.0.0",
+      "extractor_model_version": "golden-manual-1.0.0",
+      "page_number": 1,
+      "source_object_key": "agentforge://objects/synthetic-loan-policy-v1",
+      "text": "提前还款需提前三个工作日申请，最终结果以人工审核为准。"
+    },
+    {
+      "bounding_box": [
+        0.08,
+        0.14,
+        0.92,
+        0.36
+      ],
+      "content_type": "table",
+      "document_id": "synthetic-loan-policy",
+      "document_version": "1.0.0",
+      "extractor_model_version": "golden-manual-1.0.0",
+      "page_number": 2,
+      "source_object_key": "agentforge://objects/synthetic-loan-policy-v1",
+      "text": "期次1 应还本金83333 应还利息3500 应还合计86833"
+    },
+    {
+      "bounding_box": [
+        0.1,
+        0.49,
+        0.9,
+        0.63
+      ],
+      "content_type": "ocr_text",
+      "document_id": "synthetic-scan-contract",
+      "document_version": "1.0.0",
+      "extractor_model_version": "golden-manual-1.0.0",
+      "page_number": 1,
+      "source_object_key": "agentforge://objects/synthetic-scan-contract-v1",
+      "text": "最终审批结果以人工审核记录为准。"
+    },
+    {
+      "bounding_box": [
+        0.1,
+        0.55,
+        0.9,
+        0.7
+      ],
+      "content_type": "image_region",
+      "document_id": "synthetic-contract-screenshot",
+      "document_version": "1.0.0",
+      "extractor_model_version": "golden-manual-1.0.0",
+      "page_number": 1,
+      "source_object_key": "agentforge://objects/synthetic-contract-screenshot-v1",
+      "text": "回答应定位到本区域，而不是整页泛化。"
+    }
+  ],
+  "schema_version": "1.0.0"
+}

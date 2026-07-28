@@ -354,7 +354,15 @@ def check_runtime_versions() -> None:
 
 def check_static() -> None:
     check_runtime_versions()
-    run([sys.executable, "-m", "py_compile", "tools/check.py", "tools/infra.py"])
+    python_files = [
+        "tools/check.py",
+        "tools/infra.py",
+        *(
+            str(path.relative_to(ROOT))
+            for path in sorted((ROOT / "harness").rglob("*.py"))
+        ),
+    ]
+    run([sys.executable, "-m", "py_compile", *python_files])
     run(
         ["go", "vet", "./..."],
         cwd=ROOT / "services",
@@ -367,6 +375,20 @@ def check_static() -> None:
 def check_infrastructure() -> None:
     run([sys.executable, "tools/infra.py", "config-all"])
     print("[infrastructure] Local/Test Compose 配置检查通过")
+
+
+def check_harness() -> None:
+    run([sys.executable, "-m", "harness.agentforge_harness", "verify"])
+    run(
+        [
+            sys.executable,
+            "-m",
+            "harness.agentforge_harness",
+            "replay",
+            "--all",
+        ]
+    )
+    print("[harness] Fake、Mock、Fixture 与 9 个风险回放检查通过")
 
 
 def check_tests() -> None:
@@ -382,13 +404,25 @@ def check_tests() -> None:
             "unittest",
             "discover",
             "-s",
+            "harness/tests",
+            "-p",
+            "test_*.py",
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
             "tools/tests",
             "-p",
             "test_*.py",
         ]
     )
     run([node_command(), "--test", "web/tests/foundation.test.mjs"])
-    print("[test] Go、门禁工具和 Web 基础测试通过")
+    print("[test] Go、门禁工具、Harness 和 Web 基础测试通过")
 
 
 CHECKS = {
@@ -397,6 +431,7 @@ CHECKS = {
     "format": check_format,
     "infrastructure": check_infrastructure,
     "static": check_static,
+    "harness": check_harness,
     "test": check_tests,
 }
 

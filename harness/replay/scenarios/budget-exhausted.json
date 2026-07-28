@@ -1,0 +1,11 @@
+{
+  "scenario_id": "budget-exhausted",
+  "risk": "budget_exhausted",
+  "context": {"tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000005"},
+  "snapshot": {"agent": {"id": "finance-customer-service", "version": "1.0.0"}, "skills": [{"id": "loan-policy-answer", "version": "1.0.0"}], "model": {"id": "fake-finance-model", "version": "1.0.0"}, "knowledge_version": "1.0.0"},
+  "events": [
+    {"sequence": 0, "tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000005", "event_type": "budget_checked", "status": "running"},
+    {"sequence": 1, "tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000005", "event_type": "run_failed", "status": "failed", "error_code": "BUDGET_EXCEEDED"}
+  ],
+  "expected": {"terminal_status": "failed", "error_code": "BUDGET_EXCEEDED"}
+}

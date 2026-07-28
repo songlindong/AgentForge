@@ -1,0 +1,4 @@
+period,principal_minor_units,interest_minor_units,payment_minor_units,currency,synthetic
+1,83333,3500,86833,CNY,true
+2,83333,3208,86541,CNY,true
+3,83334,2917,86251,CNY,true

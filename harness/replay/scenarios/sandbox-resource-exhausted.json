@@ -1,0 +1,11 @@
+{
+  "scenario_id": "sandbox-resource-exhausted",
+  "risk": "sandbox_resource_exhausted",
+  "context": {"tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000008"},
+  "snapshot": {"agent": {"id": "finance-customer-service", "version": "1.0.0"}, "skills": [{"id": "document-parse", "version": "1.0.0"}], "model": {"id": "fake-finance-model", "version": "1.0.0"}, "knowledge_version": "1.0.0"},
+  "events": [
+    {"sequence": 0, "tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000008", "event_type": "sandbox_started", "status": "running"},
+    {"sequence": 1, "tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000008", "event_type": "sandbox_terminated", "status": "timed_out", "error_code": "DEADLINE_EXCEEDED", "cleanup_verified": true}
+  ],
+  "expected": {"terminal_status": "timed_out", "error_code": "DEADLINE_EXCEEDED", "cleanup_verified": true}
+}

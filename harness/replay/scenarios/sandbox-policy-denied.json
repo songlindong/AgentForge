@@ -1,0 +1,11 @@
+{
+  "scenario_id": "sandbox-policy-denied",
+  "risk": "sandbox_policy_denied",
+  "context": {"tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000009"},
+  "snapshot": {"agent": {"id": "finance-customer-service", "version": "1.0.0"}, "skills": [{"id": "document-parse", "version": "1.0.0"}], "model": {"id": "fake-finance-model", "version": "1.0.0"}, "knowledge_version": "1.0.0"},
+  "events": [
+    {"sequence": 0, "tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000009", "event_type": "sandbox_policy_checked", "status": "running"},
+    {"sequence": 1, "tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000009", "event_type": "sandbox_denied", "status": "policy_denied", "error_code": "FORBIDDEN"}
+  ],
+  "expected": {"terminal_status": "policy_denied", "error_code": "FORBIDDEN"}
+}

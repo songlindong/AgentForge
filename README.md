@@ -6,11 +6,11 @@ AgentForge 是一个面向金融贷款 APP/H5 双渠道客服业务的企业级 
 
 ## 当前状态
 
-当前已完成“第 5 步：最小本地基础设施”，已建立固定版本的 MySQL、Redis、Kafka、MinIO、OpenSearch、etcd 和 Milvus Local/Test Compose，提供健康等待、Smoke、重启持久化验证和安全停止入口。
+当前已完成“第 6 步：金融客服 Harness”，已建立确定性的 Fake LLM、Mock MCP、固定多模态/渠道样例、九类风险回放以及 Gateway/向量数据生成器。
 
 当前仍没有 Channel、RAG、LLM Gateway、Agent Runtime、Skill、Memory、MCP 或 Sandbox 业务实现；本地组件健康只证明数据基础设施可用。
 
-**当前暂停点：等待你阅读并确认第 5 步；确认后只进入第 6 步。**
+**当前暂停点：等待你阅读并确认第 6 步；确认后只进入第 7 步。**
 
 ## 不可变的五项核心技术目标
 
@@ -39,6 +39,7 @@ AgentForge 是一个面向金融贷款 APP/H5 双渠道客服业务的企业级 
 | [specs/adr/](specs/adr/) | 关键架构决策记录 |
 | [specs/engineering/repository-foundation.md](specs/engineering/repository-foundation.md) | 第 4 步仓库骨架、统一命令和门禁规格 |
 | [specs/engineering/local-infrastructure.md](specs/engineering/local-infrastructure.md) | 第 5 步本地基础设施、网络、健康和持久化规格 |
+| [specs/engineering/financial-customer-service-harness.md](specs/engineering/financial-customer-service-harness.md) | 第 6 步 Fake、Mock、Fixture、Replay 和 Generator 规格 |
 
 ## 工程目录
 
@@ -77,6 +78,7 @@ python tools/check.py specs
 python tools/check.py format
 python tools/check.py infrastructure
 python tools/check.py static
+python tools/check.py harness
 python tools/check.py test
 ```
 
@@ -95,6 +97,18 @@ python tools/infra.py down --env local
 ```
 
 Local MySQL 在宿主机使用 `127.0.0.1:3307`，用于避让常见的既有 MySQL `3306`；容器内仍使用 3306。其他端口与数据删除规则见第 5 步规格。普通 `down` 保留命名卷，不能用它代替显式数据销毁。
+
+## 金融客服 Harness
+
+日常离线验证不需要启动 Docker 或连接真实模型：
+
+```powershell
+python -m harness.agentforge_harness verify
+python -m harness.agentforge_harness replay --all
+python -m unittest discover -s harness/tests -p "test_*.py"
+```
+
+Fake LLM 与 Mock MCP 的本机服务入口、场景范围和生成器参数见 `harness/README.md`。Harness 通过只证明测试环境和黄金数据可用，不表示 Gateway、Agent、Skill、Knowledge、Memory、MCP 或 Sandbox 生产能力已经实现。
 
 ## 已确认的核心技术栈
 

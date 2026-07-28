@@ -1,0 +1,12 @@
+{
+  "scenario_id": "duplicate-channel-message",
+  "risk": "duplicate_channel_message",
+  "context": {"tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000007"},
+  "snapshot": {"agent": {"id": "finance-customer-service", "version": "1.0.0"}, "skills": [{"id": "loan-policy-answer", "version": "1.0.0"}], "model": {"id": "fake-finance-model", "version": "1.0.0"}, "knowledge_version": "1.0.0"},
+  "events": [
+    {"sequence": 0, "tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000007", "event_type": "message_accepted", "status": "running", "message_id": "message-duplicate-001"},
+    {"sequence": 1, "tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000007", "event_type": "duplicate_suppressed", "status": "running", "message_id": "message-duplicate-001"},
+    {"sequence": 2, "tenant_id": "tenant-0001", "trace_id": "00000000000000000000000000000007", "event_type": "run_completed", "status": "completed"}
+  ],
+  "expected": {"terminal_status": "completed", "accepted_count": 1}
+}

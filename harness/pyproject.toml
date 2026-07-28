@@ -1,7 +1,6 @@
 [project]
 name = "agentforge-harness"
-version = "0.0.0"
-description = "AgentForge 可重复验证环境的工程边界"
+version = "0.1.0"
+description = "AgentForge 金融客服可重复验证环境"
 requires-python = ">=3.13,<3.14"
 dependencies = []
-

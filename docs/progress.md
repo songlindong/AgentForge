@@ -1,12 +1,12 @@
 # AgentForge 分步实施进度
 
-最后更新：2026-07-27
+最后更新：2026-07-28
 
 ## 当前状态
 
-**状态：第 5 步“最小本地基础设施”已完成，等待用户确认。**
+**状态：第 6 步“金融客服 Harness”已完成，等待用户确认。**
 
-当前没有正在实现的步骤。下一候选步骤是“第 6 步：金融客服 Harness”，只有用户确认第 5 步后才能开始。
+当前没有正在实现的步骤。下一候选步骤是“第 7 步：金融多模态知识库写入闭环”，只有用户确认第 6 步后才能开始。
 
 ## 已完成
 
@@ -144,33 +144,64 @@
 - 完整 `python tools/check.py ci`：通过；检查 17 个 JSON 契约、9 个中文 Feature、43 个场景，并通过结构、格式、Local/Test Compose 配置、静态和 Go/Python/Node 基础测试。
 - `git diff --check`：通过；仅有 Git 对 `.gitignore` 后续可能进行 LF/CRLF 转换的非阻断提示。
 
+### 第 6 步：金融客服 Harness
+
+- [x] 用户确认第 5 步后开始第 6 步，没有提前实现第 7 步知识库写入或其他业务模块。
+- [x] 创建 `specs/engineering/financial-customer-service-harness.md` 与中文 Gherkin，先固定目标、非目标、场景、输入输出、错误、安全不变量、指标和验收方式。
+- [x] 实现 OpenAI 风格 Fake LLM，覆盖固定文本、受控图片、JSON Schema、Tool Call、SSE、延迟、429、5xx、不可用、超时、断流和非法 JSON 共 12 个场景。
+- [x] Fake LLM 校验 LLM Gateway 必需上下文 Header，拒绝任意远程图片 URL，完整 SSE 以 `data: [DONE]` 结束，断流场景故意不发送结束标志。
+- [x] 实现 Mock MCP，提供四个只返回合成数据的贷款工具和正常、依赖失败、超时、拒绝、审批、非法 JSON 共 6 个场景。
+- [x] Mock MCP 将授权决策和租户校验放在场景注入之前；缺少授权返回 `TOOL_FORBIDDEN`，租户不一致返回 `TENANT_MISMATCH`，拒绝结果不携带金融数值。
+- [x] 创建文本 PDF、无文本层扫描 PDF、APP/H5 截图 PNG、无 EXIF JPEG、还款 CSV、渠道 JSONL、黄金问题和页级/区域级标注。
+- [x] 创建 MIME/魔数不匹配、路径穿越名、Prompt Injection 和资源超限元数据等无害安全样例；没有提交恶意程序、压缩炸弹或无限循环代码。
+- [x] 创建 SHA-256 `catalog.json`，Fixture 验证同时检查路径边界、文件魔数、JPEG EXIF、APP/H5 渠道、`tenant_id` 和引用可追溯字段。
+- [x] 创建 9 类 Agent、Skill、渠道和沙箱黄金事件回放，检查版本快照、连续 sequence、租户、Trace、最终状态、错误码、消息去重、Checkpoint 幂等和沙箱清理期望。
+- [x] 创建固定 Seed 的 Gateway 请求和向量 JSONL 生成器；输出使用临时文件原子替换，向量逐行生成，默认只生成小样本，本步不写入 Milvus。
+- [x] 两个 HTTP Harness 默认且只能监听 Loopback，Body 上限为 1 MiB，访问日志不记录 Header 或 Body。
+- [x] 增加 13 个 Fake、Mock、Replay、Generator 和 Fixture 测试，并将 Harness 校验、回放、静态编译和测试接入 `python tools/check.py ci`。
+- [x] 未连接真实模型、真实征信、银行或资金方接口；未实现生产 LLM Gateway、MCP Gateway、Agent Runtime、Skill Registry、安全沙箱、Memory 或知识库写入业务。
+
+#### 第 6 步实际验证
+
+- `python -m harness.agentforge_harness verify`：通过；12 个 Fake LLM 场景、6 个 Mock MCP 场景、12 个固定 Fixture 和 9 个回放场景全部有效。
+- `python -m harness.agentforge_harness replay --all`：通过；9 个必需风险场景全部通过一致性校验。
+- `python -m unittest discover -s harness/tests -p "test_*.py"`：通过；13 个测试全部成功。
+- Poppler `pdfinfo`：文本 PDF 为 A4 两页，扫描 PDF 为 A4 一页，均未加密且不包含 JavaScript。
+- `pypdf`：文本 PDF 两页均可提取文本；扫描 PDF 文本层字符数为 0，符合扫描件基线。
+- `pdfplumber`：文本 PDF 两页尺寸正确，第二页成功识别一个还款表格。
+- Poppler `pdftoppm -png -r 144`：成功渲染三页；人工检查标题、正文、表格、扫描页、页边距和页脚，无裁切、重叠或不可读内容。
+- 完整 `python tools/check.py ci`：通过；检查 17 个 JSON 契约、10 个中文 Feature、54 个场景，并通过结构、格式、Compose 配置、静态、Harness 和全仓测试。
+- `git diff --check`：通过。
+
 ## 需要你在继续前确认
 
-阅读以下第 5 步文件后，确认基础设施边界和统一命令是否符合要求：
+阅读以下第 6 步文件后，确认确定性场景和验证边界是否符合要求：
 
-1. `specs/engineering/local-infrastructure.md`：本步组件、网络、健康、持久化和非目标。
-2. `infra/compose/compose.yaml`：固定镜像、健康检查、两张网络、端口和命名卷如何组合。
-3. `infra/environments/local.env.example` 与 `test.env.example`：Local/Test 如何隔离。
-4. `tools/infra.py`：统一生命周期、Smoke 和持久化验证如何执行。
-5. `specs/engineering/local-infrastructure.feature`：本步必须满足的 Given/When/Then 场景。
+1. `specs/engineering/financial-customer-service-harness.md`：本步目标、场景、错误和安全边界。
+2. `harness/agentforge_harness/fake_llm.py`：模型正常、SSE 和故障行为如何被固定。
+3. `harness/agentforge_harness/mock_mcp.py`：工具数据、授权优先和租户拒绝如何执行。
+4. `harness/fixtures/catalog.json` 与 `annotations/document-golden.json`：样例哈希和引用追溯基线。
+5. `harness/replay/scenarios/` 与 `replay.py`：九类风险事件如何做一致性回放。
+6. `harness/agentforge_harness/generators.py`：固定 Seed 和流式生成如何实现。
+7. `harness/tests/` 与 `tools/check.py`：本步如何进入自动化门禁。
 
-如果组件版本、端口、网络或数据语义需要调整，应先修改第 5 步，再进入第 6 步。
+如果场景语义、固定数据、安全边界或回放期望需要调整，应先修改第 6 步，再进入第 7 步。
 
 ## 下一步（尚未开始）
 
-### 第 6 步：金融客服 Harness
+### 第 7 步：金融多模态知识库写入闭环
 
 计划创建：
 
 ```text
-Fake LLM/视觉响应与 Mock MCP
-固定文本 PDF、扫描件、图片、表格和渠道消息
-Agent/Skill 回放、安全样例与数据生成器
+PDF/扫描 PDF/PNG/JPEG 安全上传与对象存储
+OCR、版面、阅读顺序、表格提取与金融条款切片
+Embedding、异步事件、幂等、版本和全链路来源追踪
 ```
 
-第 6 步会建立确定性的正常、失败、超时、断流、越权和恢复场景，让后续 AI 与业务能力不依赖真实模型随机输出或真实资金方接口。
+第 7 步会把原文件写入 MinIO，把元数据、OCR、区域和表格写入 MySQL，把向量写入 Milvus，把关键词索引写入 OpenSearch，并验证失败重试和租户隔离。
 
-第 6 步仍不会接入真实模型、真实征信、银行或资金方接口，也不会提前实现第 7 步知识库写入业务。
+第 7 步先保证多模态写入正确和来源可追溯，不提前实现第 8 步复杂检索、重排或百万向量优化。
 
 ## 决策记录摘要
 

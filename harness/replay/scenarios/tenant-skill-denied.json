@@ -1,0 +1,11 @@
+{
+  "scenario_id": "tenant-skill-denied",
+  "risk": "tenant_skill_denied",
+  "context": {"tenant_id": "tenant-0002", "trace_id": "00000000000000000000000000000003"},
+  "snapshot": {"agent": {"id": "finance-customer-service", "version": "1.0.0"}, "skills": [{"id": "loan-rate-query", "version": "1.0.0"}], "model": {"id": "fake-finance-model", "version": "1.0.0"}, "knowledge_version": "1.0.0"},
+  "events": [
+    {"sequence": 0, "tenant_id": "tenant-0002", "trace_id": "00000000000000000000000000000003", "event_type": "tenant_policy_checked", "status": "running"},
+    {"sequence": 1, "tenant_id": "tenant-0002", "trace_id": "00000000000000000000000000000003", "event_type": "run_failed", "status": "failed", "error_code": "SKILL_FORBIDDEN"}
+  ],
+  "expected": {"terminal_status": "failed", "error_code": "SKILL_FORBIDDEN"}
+}

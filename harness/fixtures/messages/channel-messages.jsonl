@@ -1,0 +1,5 @@
+{"channel": "h5", "content": [{"text": "提前还款需要几天申请？", "type": "text"}], "expected": "accepted", "message_id": "message-h5-0001", "tenant_id": "tenant-0001"}
+{"channel": "app", "content": [{"text": "请解释合同截图", "type": "text"}, {"object_uri": "agentforge://objects/synthetic-contract-screenshot", "type": "image_ref"}], "expected": "accepted", "message_id": "message-app-0001", "tenant_id": "tenant-0001"}
+{"channel": "h5", "content": [{"text": "重复消息", "type": "text"}], "expected": "accepted_once", "message_id": "message-h5-duplicate", "tenant_id": "tenant-0001"}
+{"channel": "h5", "content": [{"text": "重复消息", "type": "text"}], "expected": "duplicate_suppressed", "message_id": "message-h5-duplicate", "tenant_id": "tenant-0001"}
+{"channel": "app", "content": [{"object_uri": "agentforge://objects/cross-tenant-object", "type": "image_ref"}], "declared_object_tenant_id": "tenant-0001", "expected": "TENANT_MISMATCH", "message_id": "message-app-tenant-attack", "tenant_id": "tenant-0002"}

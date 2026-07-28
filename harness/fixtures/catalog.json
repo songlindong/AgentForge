@@ -1,0 +1,96 @@
+{
+  "fixtures": [
+    {
+      "kind": "text_pdf",
+      "media_type": "application/pdf",
+      "path": "documents/synthetic-loan-policy.pdf",
+      "sha256": "a784308e757baa410cd7b8f25d216b900edc0bd774749e5ad00f159468ddd757",
+      "synthetic": true
+    },
+    {
+      "kind": "scanned_pdf",
+      "media_type": "application/pdf",
+      "path": "documents/synthetic-scan-contract.pdf",
+      "sha256": "479ae491b97c16a38636d144a0580ce9194a2624ade6102c98f9a089ed463371",
+      "synthetic": true
+    },
+    {
+      "kind": "png",
+      "media_type": "image/png",
+      "path": "images/synthetic-contract-screenshot.png",
+      "sha256": "4d326a092e9469ad303deb4cb6519a5330962ce3d1fdbee9c86bcd6bd76e1f2a",
+      "synthetic": true
+    },
+    {
+      "kind": "jpeg",
+      "media_type": "image/jpeg",
+      "path": "images/synthetic-contract-photo.jpg",
+      "sha256": "64713b996ecc8e57a12858b2861a6000b99131911051ec047451a4abe35ce10d",
+      "synthetic": true
+    },
+    {
+      "kind": "table",
+      "media_type": "text/csv",
+      "path": "tables/repayment-plan.csv",
+      "sha256": "3d168d8d9f43a172f2040a02caf3ad28f2f6af72310a5d74cd86e6b01b07c64a",
+      "synthetic": true
+    },
+    {
+      "kind": "channel_messages",
+      "media_type": "application/x-ndjson",
+      "path": "messages/channel-messages.jsonl",
+      "sha256": "c15f3d61076fd78f23d38e020d1508783fc9dfb50d83bf0bb25c4177bd3f30d1",
+      "synthetic": true
+    },
+    {
+      "kind": "golden_annotations",
+      "media_type": "application/json",
+      "path": "annotations/document-golden.json",
+      "sha256": "6922d110b0388af6cb1e78d1cfded4e63bfa9ea9d42017a83c3e6c8578a3a96a",
+      "synthetic": true
+    },
+    {
+      "kind": "golden_questions",
+      "media_type": "application/x-ndjson",
+      "path": "annotations/golden-questions.jsonl",
+      "sha256": "fcce8ba39d90ce783f81da03d23b3dd9e924624b22cc4a5166074a9839f7ad2a",
+      "synthetic": true
+    },
+    {
+      "expected_rejection": "UNSUPPORTED_MEDIA_TYPE",
+      "kind": "security",
+      "media_type": "image/jpeg",
+      "path": "security/mime-mismatch.jpg",
+      "sha256": "7eaa624480c4fe53b56fdef3791e2467f10febaf0479320fa10b53a712646659",
+      "synthetic": true
+    },
+    {
+      "expected_rejection": "VALIDATION_FAILED",
+      "kind": "security",
+      "media_type": "application/json",
+      "path": "security/path-traversal-names.json",
+      "sha256": "bbe5523b3fc79a8cba60057dfa8af61370461cf375a5a2526c29b240b2f9d818",
+      "synthetic": true
+    },
+    {
+      "expected_rejection": "CONTENT_POLICY_BLOCKED",
+      "kind": "security",
+      "media_type": "text/plain",
+      "path": "security/prompt-injection.txt",
+      "sha256": "eb62d2179a360be08ae5e7bbb0787040fdbb3602faf64b4704dbe5dcc941f746",
+      "synthetic": true
+    },
+    {
+      "expected_rejection": "PAYLOAD_TOO_LARGE",
+      "kind": "security",
+      "media_type": "application/json",
+      "path": "security/resource-limit-cases.json",
+      "sha256": "04a1b4cb825c01dabe47211c6bb2ef82410da49c2949cb912f238962be659d62",
+      "synthetic": true
+    }
+  ],
+  "generator": "harness/fixtures/build_fixtures.py",
+  "generator_version": "1.0.0",
+  "schema_version": "1.0.0",
+  "seed": 20260728
+}
