@@ -1,0 +1,182 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AgentForge Internal Knowledge Ingestion API",
+    "version": "0.1.0",
+    "description": "知识运营内部异步入库接口。tenant_id 和操作者只从已验证服务身份解析，请求体不能指定或覆盖租户。",
+    "x-idempotency-policy": {
+      "scope": "tenant_id + operationId + Idempotency-Key",
+      "minimum_retention_hours": 72,
+      "conflict": "相同键对应不同文件或参数摘要时返回 IDEMPOTENCY_CONFLICT。"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://internal-api.agentforge.example",
+      "description": "仅内部网络和受信服务身份可访问"
+    }
+  ],
+  "security": [
+    { "serviceBearer": ["knowledge:write"] }
+  ],
+  "tags": [
+    { "name": "KnowledgeIngestion", "description": "多模态知识写入任务" }
+  ],
+  "paths": {
+    "/internal/v1/knowledge/ingestions": {
+      "post": {
+        "tags": ["KnowledgeIngestion"],
+        "operationId": "createKnowledgeIngestion",
+        "summary": "创建金融多模态知识入库任务",
+        "description": "202 仅表示任务已持久化。只有任务进入 published，知识版本才可见。",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["knowledge_base_id", "file"],
+                "properties": {
+                  "knowledge_base_id": { "$ref": "../json-schema/common.schema.json#/$defs/Identifier" },
+                  "file": { "type": "string", "format": "binary" },
+                  "sensitive_content_policy": {
+                    "type": "string",
+                    "enum": ["reject", "redact"],
+                    "default": "reject"
+                  }
+                }
+              },
+              "encoding": {
+                "file": {
+                  "contentType": "application/pdf, image/png, image/jpeg"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": { "$ref": "#/components/responses/AcceptedJob" },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "403": { "$ref": "#/components/responses/Error" },
+          "409": { "$ref": "#/components/responses/Error" },
+          "413": { "$ref": "#/components/responses/Error" },
+          "415": { "$ref": "#/components/responses/Error" },
+          "422": { "$ref": "#/components/responses/Error" },
+          "429": { "$ref": "#/components/responses/Error" },
+          "503": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/internal/v1/knowledge/ingestions/{job_id}": {
+      "get": {
+        "tags": ["KnowledgeIngestion"],
+        "operationId": "getKnowledgeIngestion",
+        "summary": "查询租户内入库任务",
+        "parameters": [
+          { "$ref": "#/components/parameters/JobId" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/Job" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "403": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/internal/v1/knowledge/ingestions/{job_id}/retry": {
+      "post": {
+        "tags": ["KnowledgeIngestion"],
+        "operationId": "retryKnowledgeIngestion",
+        "summary": "重试租户内可重试失败任务",
+        "parameters": [
+          { "$ref": "#/components/parameters/JobId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "responses": {
+          "202": { "$ref": "#/components/responses/AcceptedJob" },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "403": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "409": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "serviceBearer": {
+        "type": "oauth2",
+        "description": "服务令牌中的租户、主体和 Scope 必须经过验证。",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://identity.agentforge.example/oauth2/token",
+            "scopes": {
+              "knowledge:write": "创建和重试知识入库任务"
+            }
+          }
+        }
+      }
+    },
+    "parameters": {
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": { "$ref": "../json-schema/common.schema.json#/$defs/IdempotencyKey" }
+      },
+      "JobId": {
+        "name": "job_id",
+        "in": "path",
+        "required": true,
+        "schema": { "$ref": "../json-schema/common.schema.json#/$defs/Identifier" }
+      }
+    },
+    "headers": {
+      "TraceId": {
+        "description": "端到端 trace_id",
+        "schema": { "$ref": "../json-schema/common.schema.json#/$defs/TraceId" }
+      }
+    },
+    "responses": {
+      "AcceptedJob": {
+        "description": "任务已持久化并等待异步处理",
+        "headers": {
+          "X-Trace-ID": { "$ref": "#/components/headers/TraceId" }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "../json-schema/knowledge-ingestion-job.schema.json#/$defs/KnowledgeIngestionJob" }
+          }
+        }
+      },
+      "Job": {
+        "description": "租户内任务状态",
+        "headers": {
+          "X-Trace-ID": { "$ref": "#/components/headers/TraceId" }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "../json-schema/knowledge-ingestion-job.schema.json#/$defs/KnowledgeIngestionJob" }
+          }
+        }
+      },
+      "Error": {
+        "description": "脱敏错误响应，具体状态码与 error.code 对应",
+        "headers": {
+          "X-Trace-ID": { "$ref": "#/components/headers/TraceId" }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "../json-schema/error.schema.json#/$defs/ErrorResponse" }
+          }
+        }
+      }
+    }
+  }
+}

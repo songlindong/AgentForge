@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentforge.local/contracts/json-schema/knowledge-ingestion-job.schema.json",
+  "title": "AgentForge Knowledge Ingestion Job",
+  "$ref": "#/$defs/KnowledgeIngestionJob",
+  "$defs": {
+    "IngestionState": {
+      "type": "string",
+      "enum": [
+        "received",
+        "scanning",
+        "rejected",
+        "accepted",
+        "stored",
+        "parsing",
+        "parsed",
+        "chunking",
+        "chunked",
+        "indexing",
+        "failed",
+        "index_ready",
+        "published"
+      ]
+    },
+    "StageCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pages", "regions", "tables", "chunks", "bm25_indexed", "vectors_indexed"],
+      "properties": {
+        "pages": { "type": "integer", "minimum": 0 },
+        "regions": { "type": "integer", "minimum": 0 },
+        "tables": { "type": "integer", "minimum": 0 },
+        "chunks": { "type": "integer", "minimum": 0 },
+        "bm25_indexed": { "type": "integer", "minimum": 0 },
+        "vectors_indexed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "KnowledgeIngestionJob": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "job_id",
+        "knowledge_base_id",
+        "document_id",
+        "document_version",
+        "state",
+        "attempt",
+        "max_attempts",
+        "retryable",
+        "stage_counts",
+        "trace_id",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "job_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "knowledge_base_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "document_id": { "$ref": "./common.schema.json#/$defs/Identifier" },
+        "document_version": { "type": "integer", "minimum": 1 },
+        "knowledge_version": { "$ref": "./common.schema.json#/$defs/SemanticVersion" },
+        "state": { "$ref": "#/$defs/IngestionState" },
+        "attempt": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "max_attempts": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "retryable": { "type": "boolean" },
+        "error_code": { "$ref": "./error.schema.json#/$defs/ErrorCode" },
+        "error_summary": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "stage_counts": { "$ref": "#/$defs/StageCounts" },
+        "trace_id": { "$ref": "./common.schema.json#/$defs/TraceId" },
+        "created_at": { "$ref": "./common.schema.json#/$defs/Timestamp" },
+        "updated_at": { "$ref": "./common.schema.json#/$defs/Timestamp" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "state": { "const": "published" } } },
+          "then": { "required": ["knowledge_version"] }
+        },
+        {
+          "if": { "properties": { "state": { "enum": ["failed", "rejected"] } } },
+          "then": { "required": ["error_code", "error_summary"] }
+        }
+      ]
+    }
+  }
+}

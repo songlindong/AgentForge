@@ -30,6 +30,9 @@
         "APPROVAL_REQUIRED",
         "BUDGET_EXCEEDED",
         "INVALID_STATE_TRANSITION",
+        "MALWARE_DETECTED",
+        "SENSITIVE_CONTENT_BLOCKED",
+        "INDEX_COUNT_MISMATCH",
         "CONTENT_POLICY_BLOCKED",
         "EVIDENCE_REQUIRED",
         "INTERNAL_ERROR"
@@ -89,6 +92,8 @@
                   "APPROVAL_REQUIRED",
                   "BUDGET_EXCEEDED",
                   "INVALID_STATE_TRANSITION",
+                  "MALWARE_DETECTED",
+                  "SENSITIVE_CONTENT_BLOCKED",
                   "CONTENT_POLICY_BLOCKED",
                   "EVIDENCE_REQUIRED"
                 ]
