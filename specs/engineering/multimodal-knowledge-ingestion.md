@@ -1,8 +1,10 @@
 # 第 7 步：金融多模态知识库写入闭环规格
 
-状态：第 7 步实施规格  
-版本：0.1.0  
-更新日期：2026-07-28
+状态：已完成并通过 Local 目标环境验收
+
+版本：0.2.0
+
+更新日期：2026-07-29
 
 ## 1. 目标
 
@@ -62,7 +64,11 @@
 
 ### 4.3 事件
 
-阶段事件复用 `knowledge-event.schema.json`，事件外层复用 `event-envelope.schema.json`。分区键固定为 `tenant_id:document_id`，确保同一文档版本有序；幂等键固定为阶段名、文档版本与模型/索引版本的组合。
+阶段事件复用 `knowledge-event.schema.json`，事件外层复用
+`event-envelope.schema.json`。文档阶段分区键由
+`sha256(tenant_id | document_id)` 确定，版本发布分区键由
+`sha256(tenant_id | knowledge_base_id)` 确定；这样既显式纳入租户边界，也避免
+超出事件标识长度，并保证同一文档或知识库内有序。幂等键包含任务、阶段和尝试次数。
 
 ## 5. 错误语义
 
@@ -211,5 +217,19 @@ OCR CER、表格字段 F1、Recall@K、MRR、NDCG、引用正确率与回答有�
 3. 使用固定文本 PDF、扫描 PDF、PNG 与 JPEG 完成真实解析流程。
 4. 使用 `pypdf`、`pdfplumber` 检查 PDF 结构，并通过 Poppler 渲染后检查页面、表格和区域。
 5. 统一 `python tools/check.py ci` 和 `git diff --check` 通过。
+
+实际运行入口：
+
+```powershell
+.\.venv\Scripts\python.exe tools/infra.py up --env local
+.\.venv\Scripts\python.exe tools/knowledge.py migrate --env local
+.\.venv\Scripts\python.exe tools/knowledge.py verify --env local
+.\.venv\Scripts\python.exe tools/knowledge.py serve --env local
+```
+
+2026-07-29 的 Local 验收实际处理文本 PDF、扫描 PDF、PNG、JPEG 和一次
+索引故障重试任务，共验证 5 个已发布文档与 26 个 Kafka 事件。MySQL、
+MinIO、OpenSearch、Milvus 与 Kafka 均为 Compose 中的真实组件；OCR、
+Embedding、恶意文件扫描和文档执行边界仍是明确标记的 Local/Test Provider。
 
 完成以上内容后必须暂停。本步不继续实现第 8 步检索与问答。

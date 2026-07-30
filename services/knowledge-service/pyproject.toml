@@ -1,7 +1,33 @@
 [project]
 name = "agentforge-knowledge-service"
-version = "0.0.0"
-description = "AgentForge Knowledge Service 工程边界"
+version = "0.1.0"
+description = "AgentForge 金融多模态知识入库与版本发布服务"
 requires-python = ">=3.13,<3.14"
-dependencies = []
+dependencies = [
+  "agentforge-document-processor==0.1.0",
+  "fastapi==0.140.8",
+  "kafka-python-ng==2.2.3",
+  "minio==7.2.20",
+  "opensearch-py==3.2.0",
+  "pymilvus==2.6.9",
+  "PyMySQL==1.2.0",
+  "python-multipart==0.0.32",
+  "uvicorn==0.51.0",
+]
 
+[project.scripts]
+agentforge-knowledge = "agentforge_knowledge.__main__:main"
+
+[project.optional-dependencies]
+test = [
+  "httpx==0.28.1",
+  "jsonschema==4.26.0",
+]
+
+[build-system]
+requires = ["setuptools==83.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agentforge_knowledge*"]

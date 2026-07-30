@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from hashlib import sha256
 import json
 from typing import Any
@@ -19,6 +19,7 @@ from agentforge_document_processor.models import (
 )
 
 from .errors import KnowledgeError
+from .event_payloads import bounding_box_payload
 from .models import (
     ALLOWED_TRANSITIONS,
     IndexedChunk,
@@ -52,6 +53,14 @@ def _json_value(value: Any) -> Any:
     if isinstance(value, str):
         return json.loads(value)
     return value
+
+
+def _utc_datetime(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 @dataclass(frozen=True)
@@ -131,6 +140,7 @@ class MySQLKnowledgeRepository:
             document_version=int(row["document_version"]),
             request_digest=row["request_digest"],
             idempotency_key=row["idempotency_key"],
+            sensitive_content_policy=row["sensitive_content_policy"],
             trace_id=row["trace_id"],
             state=IngestionState(row["state"]),
             attempt=int(row["attempt"]),
@@ -148,8 +158,8 @@ class MySQLKnowledgeRepository:
                 bm25_indexed=int(row["bm25_indexed"]),
                 vectors_indexed=int(row["vectors_indexed"]),
             ),
-            created_at=row["created_at"],
-            updated_at=row["updated_at"],
+            created_at=_utc_datetime(row["created_at"]),
+            updated_at=_utc_datetime(row["updated_at"]),
         )
 
     def create_or_get_job(
@@ -160,6 +170,7 @@ class MySQLKnowledgeRepository:
         filename: str,
         request_digest: str,
         idempotency_key: str,
+        sensitive_content_policy: str,
         trace_id: str,
     ) -> tuple[IngestionJob, bool]:
         with self._transaction() as connection:
@@ -221,12 +232,13 @@ class MySQLKnowledgeRepository:
                     INSERT INTO knowledge_ingestion_jobs (
                         tenant_id, job_id, knowledge_base_id, document_id,
                         document_version, logical_filename, request_digest,
-                        idempotency_key, trace_id, state, attempt, max_attempts,
+                        idempotency_key, sensitive_content_policy, trace_id,
+                        state, attempt, max_attempts,
                         retryable, page_count, region_count, table_count,
                         chunk_count, bm25_indexed, vectors_indexed,
                         created_at, updated_at
                     ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                         1, 3, FALSE, 0, 0, 0, 0, 0, 0, %s, %s
                     )
                     """,
@@ -239,6 +251,7 @@ class MySQLKnowledgeRepository:
                         logical_filename,
                         request_digest,
                         idempotency_key,
+                        sensitive_content_policy,
                         trace_id,
                         IngestionState.RECEIVED,
                         now,
@@ -312,6 +325,74 @@ class MySQLKnowledgeRepository:
                     (utc_now(), tenant_id, job_id),
                 )
                 return self._select_job_for_update(cursor, tenant_id, job_id)
+
+    def begin_retry(
+        self,
+        *,
+        tenant_id: str,
+        job_id: str,
+        idempotency_key: str,
+        target_state: str,
+    ) -> tuple[IngestionJob, bool]:
+        with self._transaction() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT resulting_attempt
+                    FROM knowledge_job_commands
+                    WHERE tenant_id = %s
+                      AND job_id = %s
+                      AND command_type = 'retry'
+                      AND idempotency_key = %s
+                    """,
+                    (tenant_id, job_id, idempotency_key),
+                )
+                if cursor.fetchone() is not None:
+                    return (
+                        self._select_job_for_update(cursor, tenant_id, job_id),
+                        False,
+                    )
+                job = self._select_job_for_update(cursor, tenant_id, job_id)
+                target = IngestionState(target_state)
+                if (
+                    job.state != IngestionState.FAILED
+                    or not job.retryable
+                    or job.attempt >= job.max_attempts
+                    or target not in ALLOWED_TRANSITIONS[IngestionState.FAILED]
+                ):
+                    raise KnowledgeError(
+                        "INVALID_STATE_TRANSITION",
+                        "job has no legal retry transition",
+                    )
+                next_attempt = job.attempt + 1
+                cursor.execute(
+                    """
+                    INSERT INTO knowledge_job_commands (
+                        tenant_id, job_id, command_type, idempotency_key,
+                        resulting_attempt, created_at
+                    ) VALUES (%s, %s, 'retry', %s, %s, %s)
+                    """,
+                    (
+                        tenant_id,
+                        job_id,
+                        idempotency_key,
+                        next_attempt,
+                        utc_now(),
+                    ),
+                )
+                cursor.execute(
+                    """
+                    UPDATE knowledge_ingestion_jobs
+                    SET attempt = %s
+                    WHERE tenant_id = %s AND job_id = %s
+                    """,
+                    (next_attempt, tenant_id, job_id),
+                )
+                job.attempt = next_attempt
+                return (
+                    self._transition_locked(cursor, job, target),
+                    True,
+                )
 
     def _select_job_for_update(
         self,
@@ -397,34 +478,197 @@ class MySQLKnowledgeRepository:
             target,
             str(job.attempt),
         )
-        payload = {
-            "job_id": job.job_id,
-            "knowledge_base_id": job.knowledge_base_id,
-            "document_id": job.document_id,
-            "document_version": job.document_version,
-            "previous_state": str(job.state),
-            "state": str(target),
-            "attempt": job.attempt,
-        }
+        payload = self._event_payload_locked(cursor, job, target)
+        partition_key = _identifier(
+            "partition",
+            job.tenant_id,
+            (
+                job.knowledge_base_id
+                if target == IngestionState.PUBLISHED
+                else job.document_id
+            ),
+        )
         cursor.execute(
             """
             INSERT IGNORE INTO knowledge_outbox (
                 tenant_id, event_id, topic, partition_key, event_type,
-                idempotency_key, trace_id, payload, created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                idempotency_key, correlation_id, attempt, trace_id,
+                payload, created_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 job.tenant_id,
                 event_id,
                 topic,
-                f"{job.tenant_id}:{job.document_id}",
+                partition_key,
                 event_type,
                 f"{job.job_id}:{target}:{job.attempt}",
+                job.job_id,
+                job.attempt,
                 job.trace_id,
                 json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
                 utc_now(),
             ),
         )
+
+    def _event_payload_locked(
+        self,
+        cursor: Any,
+        job: IngestionJob,
+        target: IngestionState,
+    ) -> dict[str, object]:
+        if target == IngestionState.PUBLISHED:
+            if job.knowledge_version is None:
+                raise KnowledgeError(
+                    "INVALID_STATE_TRANSITION",
+                    "knowledge version is missing",
+                )
+            return {
+                "tenant_id": job.tenant_id,
+                "knowledge_base_id": job.knowledge_base_id,
+                "knowledge_version": job.knowledge_version,
+                "document_id": job.document_id,
+                "document_version": job.document_version,
+                "bm25_index_version": self.bm25_index_version,
+                "vector_index_version": self.vector_index_version,
+                "trace_id": job.trace_id,
+                "published_at": utc_now().isoformat(),
+            }
+
+        cursor.execute(
+            """
+            SELECT *
+            FROM knowledge_documents
+            WHERE tenant_id = %s
+              AND document_id = %s
+              AND document_version = %s
+            """,
+            (job.tenant_id, job.document_id, job.document_version),
+        )
+        document = cursor.fetchone()
+        if document is None:
+            raise KnowledgeError(
+                "INVALID_STATE_TRANSITION",
+                "durable document metadata is missing",
+            )
+        base: dict[str, object] = {
+            "tenant_id": job.tenant_id,
+            "document_id": job.document_id,
+            "document_version": job.document_version,
+            "job_id": job.job_id,
+            "attempt": job.attempt,
+            "trace_id": job.trace_id,
+            "source_object_key": document["object_key"],
+        }
+        if target == IngestionState.STORED:
+            return {
+                **base,
+                "media_type": document["media_type"],
+                "sha256": document["stored_sha256"],
+                "byte_size": int(document["byte_size"]),
+                "page_count": int(document["page_count"]),
+                "security_scan_status": "accepted",
+                "exif_removed": bool(document["exif_removed"]),
+                "uploaded_at": utc_now().isoformat(),
+            }
+        if target == IngestionState.PARSED:
+            cursor.execute(
+                """
+                SELECT region_id, page_number, bounding_box, content_type,
+                       confidence, extractor_version
+                FROM knowledge_regions
+                WHERE tenant_id = %s
+                  AND document_id = %s
+                  AND document_version = %s
+                ORDER BY reading_order
+                """,
+                (job.tenant_id, job.document_id, job.document_version),
+            )
+            rows = cursor.fetchall()
+            if not rows:
+                raise KnowledgeError(
+                    "INVALID_STATE_TRANSITION", "parsed regions are missing"
+                )
+            versions = {row["extractor_version"] for row in rows}
+            extractor_version = (
+                next(iter(versions)) if len(versions) == 1 else "1.0.0"
+            )
+            return {
+                **base,
+                "extractor_model_version": extractor_version,
+                "page_count": int(document["page_count"]),
+                "regions": [
+                    {
+                        "region_id": row["region_id"],
+                        "page_number": int(row["page_number"]),
+                        "bounding_box": bounding_box_payload(
+                            BoundingBox(*_json_value(row["bounding_box"]))
+                        ),
+                        "content_type": row["content_type"],
+                        "artifact_ref": (
+                            f"artifact://documents/{job.document_id}/versions/"
+                            f"{job.document_version}/regions/{row['region_id']}"
+                        ),
+                        "confidence": float(row["confidence"]),
+                    }
+                    for row in rows
+                ],
+                "ocr_artifact_ref": (
+                    f"artifact://documents/{job.document_id}/versions/"
+                    f"{job.document_version}/ocr"
+                ),
+                "layout_artifact_ref": (
+                    f"artifact://documents/{job.document_id}/versions/"
+                    f"{job.document_version}/layout"
+                ),
+                "table_artifact_ref": (
+                    f"artifact://documents/{job.document_id}/versions/"
+                    f"{job.document_version}/tables"
+                ),
+                "parsed_at": utc_now().isoformat(),
+            }
+
+        cursor.execute(
+            """
+            SELECT chunk_uid, chunker_version, embedding_model_id,
+                   embedding_model_version, embedding_dimension
+            FROM knowledge_chunks
+            WHERE tenant_id = %s
+              AND document_id = %s
+              AND document_version = %s
+            ORDER BY ordinal
+            """,
+            (job.tenant_id, job.document_id, job.document_version),
+        )
+        chunks = cursor.fetchall()
+        if not chunks:
+            raise KnowledgeError(
+                "INVALID_STATE_TRANSITION", "document chunks are missing"
+            )
+        material = "|".join(row["chunk_uid"] for row in chunks)
+        current_chunk_set = (
+            f"chunkset_{sha256(material.encode('utf-8')).hexdigest()[:32]}"
+        )
+        if target == IngestionState.CHUNKED:
+            return {
+                **base,
+                "chunk_set_id": current_chunk_set,
+                "chunker_version": chunks[0]["chunker_version"],
+                "chunk_count": len(chunks),
+                "chunk_manifest_ref": (
+                    f"artifact://documents/{job.document_id}/versions/"
+                    f"{job.document_version}/chunks/{current_chunk_set}"
+                ),
+                "chunked_at": utc_now().isoformat(),
+            }
+        return {
+            **base,
+            "chunk_set_id": current_chunk_set,
+            "embedding_model_id": chunks[0]["embedding_model_id"],
+            "embedding_model_version": chunks[0]["embedding_model_version"],
+            "dimension": int(chunks[0]["embedding_dimension"]),
+            "requested_at": utc_now().isoformat(),
+        }
 
     def save_document(self, document: StoredDocument) -> None:
         safe_file = document.safe_file
@@ -859,10 +1103,12 @@ class MySQLKnowledgeRepository:
                         partition_key=row["partition_key"],
                         event_type=row["event_type"],
                         idempotency_key=row["idempotency_key"],
+                        correlation_id=row["correlation_id"],
+                        attempt=int(row["attempt"]),
                         trace_id=row["trace_id"],
                         data=_json_value(row["payload"]),
-                        created_at=row["created_at"],
-                        published_at=row["published_at"],
+                        created_at=_utc_datetime(row["created_at"]),
+                        published_at=_utc_datetime(row["published_at"]),
                     )
                     for row in cursor.fetchall()
                 )

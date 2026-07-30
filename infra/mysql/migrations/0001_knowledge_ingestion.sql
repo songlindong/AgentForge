@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS knowledge_ingestion_jobs (
     logical_filename VARCHAR(255) NOT NULL,
     request_digest CHAR(64) NOT NULL,
     idempotency_key VARCHAR(128) NOT NULL,
+    sensitive_content_policy VARCHAR(16) NOT NULL,
     trace_id CHAR(32) NOT NULL,
     state VARCHAR(32) NOT NULL,
     attempt TINYINT UNSIGNED NOT NULL DEFAULT 1,
@@ -53,6 +54,20 @@ CREATE TABLE IF NOT EXISTS knowledge_documents (
     PRIMARY KEY (tenant_id, document_id, document_version),
     UNIQUE KEY uq_document_object (tenant_id, object_key(512)),
     KEY idx_document_knowledge (tenant_id, knowledge_base_id, document_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS knowledge_job_commands (
+    tenant_id VARCHAR(128) NOT NULL,
+    job_id VARCHAR(128) NOT NULL,
+    command_type VARCHAR(32) NOT NULL,
+    idempotency_key VARCHAR(128) NOT NULL,
+    resulting_attempt TINYINT UNSIGNED NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (tenant_id, job_id, command_type, idempotency_key),
+    CONSTRAINT fk_command_job
+        FOREIGN KEY (tenant_id, job_id)
+        REFERENCES knowledge_ingestion_jobs (tenant_id, job_id)
+        ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS knowledge_document_pages (
@@ -187,6 +202,8 @@ CREATE TABLE IF NOT EXISTS knowledge_outbox (
     partition_key VARCHAR(255) NOT NULL,
     event_type VARCHAR(128) NOT NULL,
     idempotency_key VARCHAR(255) NOT NULL,
+    correlation_id VARCHAR(128) NOT NULL,
+    attempt INT UNSIGNED NOT NULL,
     trace_id CHAR(32) NOT NULL,
     payload JSON NOT NULL,
     created_at DATETIME(6) NOT NULL,

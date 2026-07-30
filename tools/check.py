@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -58,10 +59,12 @@ REQUIRED_FILES = (
     "services/knowledge-service/pyproject.toml",
     "services/document-processor/pyproject.toml",
     "harness/pyproject.toml",
+    "requirements/step7.lock.txt",
     "infra/compose/compose.yaml",
     "infra/environments/local.env.example",
     "infra/environments/test.env.example",
     "tools/infra.py",
+    "tools/knowledge.py",
     "web/package.json",
     "web/pnpm-workspace.yaml",
 )
@@ -205,22 +208,76 @@ def check_structure() -> None:
     if web_manifest.get("dependencies") or web_manifest.get("devDependencies"):
         raise GateError("第 4 步 Web 空工程不得引入业务依赖")
 
-    python_projects = (
-        ROOT / "pyproject.toml",
-        ROOT / "services/knowledge-service/pyproject.toml",
-        ROOT / "services/document-processor/pyproject.toml",
-        ROOT / "harness/pyproject.toml",
-    )
-    for project_path in python_projects:
-        with project_path.open("rb") as stream:
-            python_project = tomllib.load(stream)
-        if python_project.get("project", {}).get("dependencies") != []:
-            raise GateError(
-                f"第 4 步 Python 空工程不得引入业务依赖: "
-                f"{project_path.relative_to(ROOT)}"
-            )
+    check_python_dependencies()
 
-    print("[structure] 仓库目录、版本和空工程边界检查通过")
+    print("[structure] 仓库目录、版本和 Python 依赖锁定检查通过")
+
+
+def normalize_package_name(value: str) -> str:
+    return re.sub(r"[-_.]+", "-", value).lower()
+
+
+def exact_requirement(value: str, *, source: Path) -> tuple[str, str]:
+    match = re.fullmatch(
+        r"\s*([A-Za-z0-9_.-]+)(?:\[[A-Za-z0-9_,.-]+\])?==([^\s;]+)\s*",
+        value,
+    )
+    if match is None:
+        raise GateError(
+            f"Python 依赖必须精确固定版本: {source.relative_to(ROOT)}: {value}"
+        )
+    return normalize_package_name(match.group(1)), match.group(2)
+
+
+def check_python_dependencies() -> None:
+    lock_path = ROOT / "requirements/step7.lock.txt"
+    locked: dict[str, str] = {}
+    for line in lock_path.read_text(encoding="utf-8").splitlines():
+        value = line.strip()
+        if not value or value.startswith("#"):
+            continue
+        name, version = exact_requirement(value, source=lock_path)
+        if name in locked and locked[name] != version:
+            raise GateError(f"锁文件包含冲突版本: {name}")
+        locked[name] = version
+
+    project_paths = (
+        ROOT / "services/document-processor/pyproject.toml",
+        ROOT / "services/knowledge-service/pyproject.toml",
+    )
+    projects: dict[str, tuple[str, Path]] = {}
+    parsed_projects: list[tuple[Path, dict[str, Any]]] = []
+    for project_path in project_paths:
+        with project_path.open("rb") as stream:
+            document = tomllib.load(stream)
+        parsed_projects.append((project_path, document))
+        project = document.get("project", {})
+        projects[normalize_package_name(project["name"])] = (
+            str(project["version"]),
+            project_path,
+        )
+
+    for project_path, document in parsed_projects:
+        project = document.get("project", {})
+        requirements = list(project.get("dependencies", []))
+        for optional in project.get("optional-dependencies", {}).values():
+            requirements.extend(optional)
+        requirements.extend(document.get("build-system", {}).get("requires", []))
+        for requirement in requirements:
+            name, version = exact_requirement(requirement, source=project_path)
+            if name in projects:
+                expected, _ = projects[name]
+                if version != expected:
+                    raise GateError(
+                        f"本地包版本不一致: {project_path.relative_to(ROOT)}: "
+                        f"{name}=={version}，需要 {expected}"
+                    )
+                continue
+            if locked.get(name) != version:
+                raise GateError(
+                    f"直接依赖未在锁文件固定: {project_path.relative_to(ROOT)}: "
+                    f"{name}=={version}"
+                )
 
 
 def check_specs() -> None:
@@ -355,12 +412,9 @@ def check_runtime_versions() -> None:
 def check_static() -> None:
     check_runtime_versions()
     python_files = [
-        "tools/check.py",
-        "tools/infra.py",
-        *(
-            str(path.relative_to(ROOT))
-            for path in sorted((ROOT / "harness").rglob("*.py"))
-        ),
+        str(path.relative_to(ROOT))
+        for directory in ("tools", "harness", "services", "tests")
+        for path in sorted((ROOT / directory).rglob("*.py"))
     ]
     run([sys.executable, "-m", "py_compile", *python_files])
     run(
@@ -397,6 +451,19 @@ def check_tests() -> None:
         cwd=ROOT / "services",
         environment=go_environment(),
     )
+    for test_root in ("tests/unit", "tests/contract", "tests/e2e", "tests/integration"):
+        run(
+            [
+                sys.executable,
+                "-m",
+                "unittest",
+                "discover",
+                "-s",
+                test_root,
+                "-p",
+                "test_*.py",
+            ]
+        )
     run(
         [
             sys.executable,
@@ -422,7 +489,7 @@ def check_tests() -> None:
         ]
     )
     run([node_command(), "--test", "web/tests/foundation.test.mjs"])
-    print("[test] Go、门禁工具、Harness 和 Web 基础测试通过")
+    print("[test] Go、门禁工具、Harness、知识入库和 Web 测试通过")
 
 
 CHECKS = {

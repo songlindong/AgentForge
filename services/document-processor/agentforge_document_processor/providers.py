@@ -91,7 +91,7 @@ class HarnessOCRProvider:
 
 
 @dataclass(frozen=True)
-1235787class HashEmbeddingProvider:
+class HashEmbeddingProvider:
     dimension: int = 64
     model_id: str = "hash-embedding"
     model_version: str = "1.0.0-test"

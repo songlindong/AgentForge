@@ -100,6 +100,7 @@ class IngestionJob:
     document_version: int
     request_digest: str
     idempotency_key: str
+    sensitive_content_policy: str
     trace_id: str
     state: IngestionState = IngestionState.RECEIVED
     attempt: int = 1
@@ -147,6 +148,8 @@ class OutboxRecord:
     partition_key: str
     event_type: str
     idempotency_key: str
+    correlation_id: str
+    attempt: int
     trace_id: str
     data: dict[str, Any]
     created_at: datetime = field(default_factory=utc_now)

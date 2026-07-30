@@ -17,6 +17,7 @@ class KnowledgeRepositoryPort(Protocol):
         filename: str,
         request_digest: str,
         idempotency_key: str,
+        sensitive_content_policy: str,
         trace_id: str,
     ) -> tuple[IngestionJob, bool]: ...
 
@@ -35,6 +36,15 @@ class KnowledgeRepositoryPort(Protocol):
     ) -> IngestionJob: ...
 
     def increment_attempt(self, tenant_id: str, job_id: str) -> IngestionJob: ...
+
+    def begin_retry(
+        self,
+        *,
+        tenant_id: str,
+        job_id: str,
+        idempotency_key: str,
+        target_state: str,
+    ) -> tuple[IngestionJob, bool]: ...
 
     def save_document(self, document: StoredDocument) -> None: ...
 

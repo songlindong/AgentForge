@@ -8,6 +8,13 @@ from threading import RLock
 from agentforge_document_processor.models import ParsedDocument
 
 from .errors import KnowledgeError
+from .event_payloads import (
+    document_chunked,
+    document_parsed,
+    document_uploaded,
+    embedding_requested,
+    knowledge_version_published,
+)
 from .models import (
     ALLOWED_TRANSITIONS,
     IndexedChunk,
@@ -37,7 +44,12 @@ def _identifier(prefix: str, *parts: str) -> str:
 
 
 class InMemoryKnowledgeRepository:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        bm25_index_version: str = "1.0.0",
+        vector_index_version: str = "1.0.0",
+    ) -> None:
         self._lock = RLock()
         self._jobs: dict[tuple[str, str], IngestionJob] = {}
         self._idempotency: dict[tuple[str, str], tuple[str, str]] = {}
@@ -46,8 +58,11 @@ class InMemoryKnowledgeRepository:
         self._parsed: dict[tuple[str, str, int], ParsedDocument] = {}
         self._chunks: dict[tuple[str, str, int], dict[str, IndexedChunk]] = {}
         self._inbox: set[tuple[str, str, str]] = set()
+        self._commands: dict[tuple[str, str, str], int] = {}
         self._outbox: dict[tuple[str, str], OutboxRecord] = {}
         self._published: dict[tuple[str, str], int] = {}
+        self.bm25_index_version = bm25_index_version
+        self.vector_index_version = vector_index_version
 
     def create_or_get_job(
         self,
@@ -57,6 +72,7 @@ class InMemoryKnowledgeRepository:
         filename: str,
         request_digest: str,
         idempotency_key: str,
+        sensitive_content_policy: str,
         trace_id: str,
     ) -> tuple[IngestionJob, bool]:
         with self._lock:
@@ -91,6 +107,7 @@ class InMemoryKnowledgeRepository:
                 document_version=document_version,
                 request_digest=request_digest,
                 idempotency_key=idempotency_key,
+                sensitive_content_policy=sensitive_content_policy,
                 trace_id=trace_id,
             )
             self._jobs[(tenant_id, job_id)] = job
@@ -151,6 +168,42 @@ class InMemoryKnowledgeRepository:
             job.attempt += 1
             job.updated_at = utc_now()
             return deepcopy(job)
+
+    def begin_retry(
+        self,
+        *,
+        tenant_id: str,
+        job_id: str,
+        idempotency_key: str,
+        target_state: str,
+    ) -> tuple[IngestionJob, bool]:
+        with self._lock:
+            command_key = (tenant_id, job_id, idempotency_key)
+            if command_key in self._commands:
+                return deepcopy(self._mutable_job(tenant_id, job_id)), False
+            job = self._mutable_job(tenant_id, job_id)
+            target = IngestionState(target_state)
+            if (
+                job.state != IngestionState.FAILED
+                or not job.retryable
+                or job.attempt >= job.max_attempts
+                or target not in ALLOWED_TRANSITIONS[IngestionState.FAILED]
+            ):
+                raise KnowledgeError(
+                    "INVALID_STATE_TRANSITION",
+                    "job has no legal retry transition",
+                )
+            previous = job.state
+            job.attempt += 1
+            job.state = target
+            job.retryable = False
+            job.error_code = None
+            job.error_summary = None
+            job.failure_stage = None
+            job.updated_at = utc_now()
+            self._commands[command_key] = job.attempt
+            self._append_state_event(job, previous)
+            return deepcopy(job), True
 
     def save_document(self, document: StoredDocument) -> None:
         with self._lock:
@@ -321,6 +374,38 @@ class InMemoryKnowledgeRepository:
         if topic_event is None:
             return
         topic, event_type = topic_event
+        document_key = (job.tenant_id, job.document_id, job.document_version)
+        if job.state == IngestionState.STORED:
+            payload = document_uploaded(job, self._documents[document_key])
+        elif job.state == IngestionState.PARSED:
+            parsed = self._parsed[document_key]
+            payload = document_parsed(
+                job,
+                self._documents[document_key],
+                regions=parsed.regions,
+                extractor_version=parsed.extractor_version,
+                page_count=parsed.page_count,
+            )
+        elif job.state == IngestionState.CHUNKED:
+            chunks = self.get_chunks(*document_key)
+            payload = document_chunked(
+                job,
+                self._documents[document_key],
+                chunks,
+            )
+        elif job.state == IngestionState.INDEXING:
+            chunks = self.get_chunks(*document_key)
+            payload = embedding_requested(
+                job,
+                self._documents[document_key],
+                chunks,
+            )
+        else:
+            payload = knowledge_version_published(
+                job,
+                bm25_index_version=self.bm25_index_version,
+                vector_index_version=self.vector_index_version,
+            )
         event_id = _identifier(
             "evt",
             job.tenant_id,
@@ -332,19 +417,21 @@ class InMemoryKnowledgeRepository:
             tenant_id=job.tenant_id,
             event_id=event_id,
             topic=topic,
-            partition_key=f"{job.tenant_id}:{job.document_id}",
+            partition_key=_identifier(
+                "partition",
+                job.tenant_id,
+                (
+                    job.knowledge_base_id
+                    if job.state == IngestionState.PUBLISHED
+                    else job.document_id
+                ),
+            ),
             event_type=event_type,
             idempotency_key=f"{job.job_id}:{job.state}:{job.attempt}",
+            correlation_id=job.job_id,
+            attempt=job.attempt,
             trace_id=job.trace_id,
-            data={
-                "job_id": job.job_id,
-                "knowledge_base_id": job.knowledge_base_id,
-                "document_id": job.document_id,
-                "document_version": job.document_version,
-                "previous_state": previous,
-                "state": job.state,
-                "attempt": job.attempt,
-            },
+            data=payload,
         )
         self._outbox[(job.tenant_id, event_id)] = record
 

@@ -1,12 +1,14 @@
 # AgentForge 分步实施进度
 
-最后更新：2026-07-28
+最后更新：2026-07-29
 
 ## 当前状态
 
-**状态：第 7 步“金融多模态知识库写入闭环”正在实施。**
+**状态：第 7 步“金融多模态知识库写入闭环”已完成，当前位于暂停点。**
 
-用户已确认第 6 步并明确要求继续。当前只实施第 7 步的文件检查、解析/OCR、来源追踪、切片、Embedding、异步一致性与四类存储写入，不提前实现第 8 步检索优化或后续模块。
+第 7 步已经完成规格、实现、Harness、Local 真实存储联调和验收。当前没有
+新的实施步骤；第 8 步只是下一候选，必须等用户确认已看懂第 7 步后才能设为
+当前步骤。未提前实现检索、重排、问答、RAG 质量评测或后续模块。
 
 ## 已完成
 
@@ -173,6 +175,49 @@
 - 完整 `python tools/check.py ci`：通过；检查 17 个 JSON 契约、10 个中文 Feature、54 个场景，并通过结构、格式、Compose 配置、静态、Harness 和全仓测试。
 - `git diff --check`：通过。
 
+### 第 7 步：金融多模态知识库写入闭环
+
+- [x] 用户确认第 6 步后开始第 7 步，没有提前实现第 8 步检索、重排、问答和质量评测。
+- [x] 使用既有 OpenAPI、JSON Schema、AsyncAPI、中文 Gherkin 和 ADR-009 固定目标、非目标、状态机、错误语义、安全不变量、四存储职责和发布门禁。
+- [x] 实现 PDF、扫描 PDF、PNG/JPEG 的文件名、MIME/魔数、大小、页数、像素、解压比例、恶意文件扫描和图片元数据清理。
+- [x] 实现原生 PDF 文本/坐标、阅读顺序与表格提取；扫描 PDF 和图片通过固定 Harness OCR，并保存页码、区域坐标、提取版本和 `test_model`。
+- [x] 实现金融区域/表格切片、确定性 `chunk_uid` 和非零 Hash Embedding；Production Profile 禁止所有测试 Provider 与进程内解析边界。
+- [x] 实现 FastAPI 内部上传、状态查询和幂等重试接口；租户只来自受信服务身份，并提供统一错误响应与 `trace_id`。
+- [x] 原文件进入 MinIO；任务、文档、页、区域、表格、片段、来源和知识版本进入 MySQL；关键词进入 OpenSearch；向量进入 Milvus。
+- [x] MySQL 作为唯一真相源；状态变化与 Outbox 同事务；Inbox 使用 `tenant_id + consumer_name + event_id` 去重；重试命令也有独立幂等键。
+- [x] 只有 MySQL、OpenSearch 和 Milvus 片段数一致才允许发布 Knowledge Version；Milvus 发布对账使用 Strong 一致性读取。
+- [x] 五类事件均符合现有 JSON Schema，携带 Envelope、租户、Trace、关联、尝试次数、幂等键和必需 Kafka Header。
+- [x] 创建 Python 服务级 `pyproject.toml` 直接依赖、`requirements/step7.lock.txt` 完整锁定和仓库内 `.venv`，并把依赖一致性纳入统一门禁。
+- [x] 创建迁移、内部 API 启动、Outbox 投递和 Local 真实联调入口；内部 API 默认只监听 `127.0.0.1:8087`。
+- [x] Local MinIO 宿主机端口调整为 `29000/29001`，避让开发机既有 `milvus-minio` 的 `9000/9001`，没有停止或覆盖既有服务。
+
+#### 第 7 步实际验证
+
+- 文档处理单元测试：7 个通过；覆盖安全检查、PDF/表格、扫描 OCR、图片清理、确定性切片/向量和 Production Provider 门禁。
+- 知识流水线单元测试：8 个通过；覆盖完整发布、重复请求、幂等冲突、失败重试、跨租户、Inbox/Outbox 和敏感值拒绝/脱敏。
+- 契约测试：2 个通过；任务和五类事件均通过 JSON Schema，内部 OpenAPI 操作边界一致。
+- API 端到端测试：4 个通过；覆盖持久化后返回、后台处理、鉴权/Scope/租户可见性、幂等冲突和统一参数错误。
+- `pip check`：通过；两个本地包已按 `pymilvus==2.6.9` 重新登记，没有破损依赖。
+- `tools/infra.py up/smoke --env local`：通过；MySQL、Redis、Kafka、MinIO、OpenSearch、etcd、Milvus 全部健康且宿主机端口可达。
+- `tools/knowledge.py migrate --env local`：通过；MySQL 幂等迁移实际执行。
+- `tools/knowledge.py verify --env local`：通过；文本 PDF、扫描 PDF、PNG、JPEG 与一次真实故障重试共 5 个文档完成四存储写入，26 个事件经 Kafka 实际投递并消费，跨租户泄漏为 0。
+- 内部 API 真实启动检查：`127.0.0.1:8087/healthz` 返回 `ok`，验证后进程已干净停止。
+- `pypdf`：原生 PDF 2 页共 443 个文本字符；扫描 PDF 1 页且文本层为 0。
+- `pdfplumber`：两页均为 A4，原生 PDF 成功提取 1 个表格。
+- Poppler：两份 PDF 均未加密、无 JavaScript；144 DPI 渲染 3 页后目视确认标题、正文、表格、扫描条款、引用区域和页码均无裁切、重叠或不可读内容。
+- 完整 `.venv\Scripts\python.exe tools/check.py ci`：通过；检查 19 个 JSON 契约、11 个中文 Feature、66 个场景，并通过结构、依赖锁定、格式、Compose、静态、Harness 和全仓测试。
+- `git diff --check`：通过；仅有 Git 对 3 个环境/迁移文件后续可能进行 LF/CRLF 转换的非阻断提示。
+
+#### 第 7 步遇到的问题与取舍
+
+- 官方 PyPI 在当前网络环境超时，依赖通过用户批准的清华镜像安装；仓库锁定的是解析后的准确版本，不把镜像地址写成生产强依赖。
+- `pymilvus` 最初被错误登记为 3.0.0；按 Milvus 2.6.6 服务端重新固定为 `pymilvus==2.6.9`，重装本地包后 `pip check` 通过。
+- `kafka-python-ng==2.2.3` 不支持 `enable_idempotence` 参数；实现采用 `acks=all`、有限重试、Transactional Outbox 与 Inbox 幂等，符合既定至少一次语义，不宣称 Kafka 恰好一次。
+- Milvus 默认一致性可能让写入后的即时计数短暂为 0；发布对账显式使用 Strong 一致性，避免把已写入向量误判为缺失或提前发布。
+- Kafka Consumer Group 在 Windows/Python 3.13 出现文件描述符竞态；真实联调 Harness 改为手动分区分配并记录发布前 end offset，只读取本次新增消息，连续两次复验均通过。
+- 开发机已有 `milvus-minio` 占用 `9000/9001`；Local MinIO 改用 `29000/29001`，没有停止或修改既有容器。
+- Bundled Poppler 的 `.cmd` 二级转发在当前 Windows 环境解析失败；直接调用同一 bundled Poppler 的实际可执行文件完成结构与渲染检查，没有跳过视觉门禁。
+
 ## 已记录的后续实施约束
 
 ### 分层意图识别与安全路由
@@ -185,33 +230,33 @@
 
 ## 需要你在继续前确认
 
-阅读以下第 6 步文件后，确认确定性场景和验证边界是否符合要求：
+阅读以下第 7 步文件后，确认写入状态机、四存储职责和验收边界是否符合要求：
 
-1. `specs/engineering/financial-customer-service-harness.md`：本步目标、场景、错误和安全边界。
-2. `harness/agentforge_harness/fake_llm.py`：模型正常、SSE 和故障行为如何被固定。
-3. `harness/agentforge_harness/mock_mcp.py`：工具数据、授权优先和租户拒绝如何执行。
-4. `harness/fixtures/catalog.json` 与 `annotations/document-golden.json`：样例哈希和引用追溯基线。
-5. `harness/replay/scenarios/` 与 `replay.py`：九类风险事件如何做一致性回放。
-6. `harness/agentforge_harness/generators.py`：固定 Seed 和流式生成如何实现。
-7. `harness/tests/` 与 `tools/check.py`：本步如何进入自动化门禁。
+1. `specs/engineering/multimodal-knowledge-ingestion.md`：目标、状态机、错误、安全和发布门禁。
+2. `services/document-processor/agentforge_document_processor/`：文件检查、解析/OCR、表格、切片与 Provider 边界。
+3. `services/knowledge-service/agentforge_knowledge/pipeline.py`：任务从持久化到双索引发布的执行过程。
+4. `services/knowledge-service/agentforge_knowledge/mysql_repository.py`：事务状态、来源数据、Outbox/Inbox 和版本如何落入 MySQL。
+5. `services/knowledge-service/agentforge_knowledge/api.py` 与 `runtime.py`：内部接口、可信租户和真实组件如何组装。
+6. `tests/unit/`、`tests/contract/knowledge/`、`tests/e2e/knowledge/` 和 `tests/integration/knowledge/`：各层验证职责。
+7. `requirements/README.md` 与 `tools/knowledge.py`：依赖管理、迁移、联调和服务启动方式。
 
-如果场景语义、固定数据、安全边界或回放期望需要调整，应先修改第 6 步，再进入第 7 步。
+如果状态语义、数据边界、测试 Provider 或四存储职责需要调整，应先修改第 7 步，不能直接进入检索实现。
 
 ## 下一步（尚未开始）
 
-### 第 7 步：金融多模态知识库写入闭环
+### 第 8 步：金融多模态检索、重排、引用与评测
 
 计划创建：
 
 ```text
-PDF/扫描 PDF/PNG/JPEG 安全上传与对象存储
-OCR、版面、阅读顺序、表格提取与金融条款切片
-Embedding、异步事件、幂等、版本和全链路来源追踪
+OpenSearch BM25 + Milvus 多路召回
+RRF、Cross-Encoder、父子切片与多模态引用
+Recall@K、MRR/NDCG、OCR CER、表格字段 F1 与回答有据性
 ```
 
-第 7 步会把原文件写入 MinIO，把元数据、OCR、区域和表格写入 MySQL，把向量写入 Milvus，把关键词索引写入 OpenSearch，并验证失败重试和租户隔离。
+第 8 步会在第 7 步已发布的不可变知识版本上实现带租户过滤的混合检索、重排和页级/区域级引用，并用当前固定黄金集建立可重复的小数据质量基线。
 
-第 7 步先保证多模态写入正确和来源可追溯，不提前实现第 8 步复杂检索、重排或百万向量优化。
+第 8 步尚未开始。百万向量和高并发优化仍属于第 19 步，不能在第 8 步虚构规模结论。
 
 ## 决策记录摘要
 

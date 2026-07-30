@@ -1,0 +1,1 @@
+"""AgentForge contract tests."""

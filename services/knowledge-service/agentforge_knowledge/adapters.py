@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha256
 from io import BytesIO
 import json
 from typing import Any
 
 from .errors import KnowledgeError
+from .event_payloads import event_envelope
 from .models import IndexedChunk, OutboxRecord
 
 
@@ -388,6 +390,7 @@ class MilvusVectorIndex:
                 collection_name=self.collection_name,
                 filter=expression,
                 output_fields=["count(*)"],
+                consistency_level="Strong",
             )
             return int(result[0]["count(*)"]) if result else 0
         except Exception as exc:
@@ -410,7 +413,8 @@ class KafkaEventPublisher:
                 bootstrap_servers=self.bootstrap_servers,
                 client_id=self.client_id,
                 acks="all",
-                enable_idempotence=True,
+                retries=5,
+                max_in_flight_requests_per_connection=1,
                 key_serializer=lambda value: value.encode("utf-8"),
                 value_serializer=lambda value: json.dumps(
                     value,
@@ -426,28 +430,27 @@ class KafkaEventPublisher:
             ) from exc
 
     def publish(self, record: OutboxRecord) -> None:
-        envelope = {
-            "event_id": record.event_id,
-            "event_type": record.event_type,
-            "event_version": "1.0.0",
-            "tenant_id": record.tenant_id,
-            "partition_key": record.partition_key,
-            "idempotency_key": record.idempotency_key,
-            "correlation_id": record.data["job_id"],
-            "producer": "knowledge-service",
-            "occurred_at": record.created_at.isoformat(),
-            "trace_id": record.trace_id,
-            "attempt": int(record.data["attempt"]),
-            "data": record.data,
-        }
+        envelope = event_envelope(record)
         try:
+            traceparent = (
+                f"00-{record.trace_id}-"
+                f"{sha256(record.event_id.encode('utf-8')).hexdigest()[:16]}-01"
+            )
             future = self._producer.send(
                 record.topic,
                 key=record.partition_key,
                 value=envelope,
                 headers=[
                     ("content_type", b"application/json"),
+                    (
+                        "schema_id",
+                        (
+                            "contracts/asyncapi/kafka.asyncapi.json#/"
+                            f"components/messages/{record.event_type}"
+                        ).encode("utf-8"),
+                    ),
                     ("tenant_id", record.tenant_id.encode("utf-8")),
+                    ("traceparent", traceparent.encode("ascii")),
                     (
                         "idempotency_key",
                         record.idempotency_key.encode("utf-8"),

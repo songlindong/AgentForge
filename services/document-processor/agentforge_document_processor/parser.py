@@ -35,7 +35,7 @@ def _normalize_box(
 
 
 class MultimodalDocumentParser:
-    native_extractor_version = "pdf-baseline-1.0.0"
+    native_extractor_version = "1.0.0"
 
     def parse(
         self,

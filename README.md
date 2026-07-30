@@ -6,11 +6,17 @@ AgentForge 是一个面向金融贷款 APP/H5 双渠道客服业务的企业级 
 
 ## 当前状态
 
-当前已完成“第 6 步：金融客服 Harness”，已建立确定性的 Fake LLM、Mock MCP、固定多模态/渠道样例、九类风险回放以及 Gateway/向量数据生成器。
+当前已完成“第 7 步：金融多模态知识库写入闭环”。系统已经能在 Local
+环境处理 PDF、扫描 PDF、PNG/JPEG，把元数据、OCR/区域、表格、片段和任务
+写入 MySQL，把原文件写入 MinIO，把关键词与向量分别写入 OpenSearch 和
+Milvus，并通过 Transactional Outbox 向 Kafka 投递阶段事件。
 
-当前仍没有 Channel、RAG、LLM Gateway、Agent Runtime、Skill、Memory、MCP 或 Sandbox 业务实现；本地组件健康只证明数据基础设施可用。
+当前只完成了知识库的可追溯写入，不包含第 8 步混合检索、重排、问答和
+质量评测；也仍未实现 Channel、LLM Gateway、Agent Runtime、Skill、
+Memory、MCP 或正式 Sandbox。Local/Test 使用的固定 OCR、Hash Embedding、
+测试扫描器和进程内解析边界不能用于生产。
 
-**当前暂停点：等待你阅读并确认第 6 步；确认后只进入第 7 步。**
+**当前暂停点：等待你阅读并确认第 7 步；确认后才把第 8 步设为当前步骤。**
 
 ## 不可变的五项核心技术目标
 
@@ -40,6 +46,7 @@ AgentForge 是一个面向金融贷款 APP/H5 双渠道客服业务的企业级 
 | [specs/engineering/repository-foundation.md](specs/engineering/repository-foundation.md) | 第 4 步仓库骨架、统一命令和门禁规格 |
 | [specs/engineering/local-infrastructure.md](specs/engineering/local-infrastructure.md) | 第 5 步本地基础设施、网络、健康和持久化规格 |
 | [specs/engineering/financial-customer-service-harness.md](specs/engineering/financial-customer-service-harness.md) | 第 6 步 Fake、Mock、Fixture、Replay 和 Generator 规格 |
+| [specs/engineering/multimodal-knowledge-ingestion.md](specs/engineering/multimodal-knowledge-ingestion.md) | 第 7 步多模态安全写入、幂等、四存储和发布门禁规格 |
 
 ## 工程目录
 
@@ -64,22 +71,24 @@ AgentForge 是一个面向金融贷款 APP/H5 双渠道客服业务的企业级 
 - Node.js `24.14.0`
 - pnpm `11.9.0`
 
-安装或切换到根目录版本文件声明的运行时后，执行完整门禁：
+Python 服务依赖使用服务级 `pyproject.toml` 声明，并由
+`requirements/step7.lock.txt` 固定完整版本。按 `requirements/README.md`
+创建 `.venv` 后执行完整门禁：
 
 ```powershell
-python tools/check.py ci
+.\.venv\Scripts\python.exe tools/check.py ci
 ```
 
 也可以分别执行：
 
 ```powershell
-python tools/check.py structure
-python tools/check.py specs
-python tools/check.py format
-python tools/check.py infrastructure
-python tools/check.py static
-python tools/check.py harness
-python tools/check.py test
+.\.venv\Scripts\python.exe tools/check.py structure
+.\.venv\Scripts\python.exe tools/check.py specs
+.\.venv\Scripts\python.exe tools/check.py format
+.\.venv\Scripts\python.exe tools/check.py infrastructure
+.\.venv\Scripts\python.exe tools/check.py static
+.\.venv\Scripts\python.exe tools/check.py harness
+.\.venv\Scripts\python.exe tools/check.py test
 ```
 
 Windows 可以使用 `tools/check.ps1`，Linux/macOS 可以使用 `tools/check.sh`。包装脚本只转发到同一 Python 入口。工程门禁不安装依赖、不访问模型或金融接口；其中 `infrastructure` 只解析 Compose 配置，不启动 Docker 容器。
@@ -96,7 +105,23 @@ python tools/infra.py restart-verify --env local
 python tools/infra.py down --env local
 ```
 
-Local MySQL 在宿主机使用 `127.0.0.1:3307`，用于避让常见的既有 MySQL `3306`；容器内仍使用 3306。其他端口与数据删除规则见第 5 步规格。普通 `down` 保留命名卷，不能用它代替显式数据销毁。
+Local MySQL 在宿主机使用 `127.0.0.1:3307`；Local MinIO 使用
+`127.0.0.1:29000/29001`，用于避让开发机已有的 `9000/9001` 服务。
+容器内仍使用标准端口。其他端口与数据删除规则见第 5 步规格。普通
+`down` 保留命名卷，不能用它代替显式数据销毁。
+
+## 第 7 步知识写入
+
+```powershell
+.\.venv\Scripts\python.exe tools/knowledge.py migrate --env local
+.\.venv\Scripts\python.exe tools/knowledge.py verify --env local
+.\.venv\Scripts\python.exe tools/knowledge.py serve --env local
+```
+
+`verify` 显式连接 Local 的 MySQL、MinIO、Kafka、OpenSearch 和 Milvus，
+使用固定文本 PDF、扫描 PDF、PNG、JPEG 以及故障注入任务验证四存储写入、
+双索引发布门禁、幂等重试、Inbox/Outbox 和租户隔离。普通 CI 中该真实
+存储测试默认跳过，避免把“Docker 未启动”误判为代码失败。
 
 ## 金融客服 Harness
 
@@ -108,7 +133,10 @@ python -m harness.agentforge_harness replay --all
 python -m unittest discover -s harness/tests -p "test_*.py"
 ```
 
-Fake LLM 与 Mock MCP 的本机服务入口、场景范围和生成器参数见 `harness/README.md`。Harness 通过只证明测试环境和黄金数据可用，不表示 Gateway、Agent、Skill、Knowledge、Memory、MCP 或 Sandbox 生产能力已经实现。
+Fake LLM 与 Mock MCP 的本机服务入口、场景范围和生成器参数见
+`harness/README.md`。Harness 通过只证明测试环境和黄金数据可用；第 7 步
+Local 知识写入已实现，但不表示 Gateway、Agent、Skill、Memory、MCP、
+正式 Sandbox 或生产 Knowledge 能力已经完成。
 
 ## 已确认的核心技术栈
 

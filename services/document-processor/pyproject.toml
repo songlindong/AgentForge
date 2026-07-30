@@ -1,7 +1,18 @@
 [project]
 name = "agentforge-document-processor"
-version = "0.0.0"
-description = "AgentForge Document Processor 工程边界"
+version = "0.1.0"
+description = "AgentForge 多模态金融文档安全检查、解析、OCR 与切片服务"
 requires-python = ">=3.13,<3.14"
-dependencies = []
+dependencies = [
+  "pdfplumber==0.11.9",
+  "Pillow==12.2.0",
+  "pypdf==6.10.0",
+]
 
+[build-system]
+requires = ["setuptools==83.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agentforge_document_processor*"]

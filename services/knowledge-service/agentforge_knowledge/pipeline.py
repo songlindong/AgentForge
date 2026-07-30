@@ -94,6 +94,12 @@ class KnowledgeIngestionPipeline:
         self.config = config
 
     def ingest(self, request: IngestionRequest) -> IngestionJob:
+        job = self.stage(request)
+        if job.state != IngestionState.STORED:
+            return job
+        return self.process_staged(request.tenant_id, job.job_id)
+
+    def stage(self, request: IngestionRequest) -> IngestionJob:
         self._validate_request(request)
         digest = _request_digest(request)
         job, created = self.repository.create_or_get_job(
@@ -102,6 +108,7 @@ class KnowledgeIngestionPipeline:
             filename=request.filename,
             request_digest=digest,
             idempotency_key=request.idempotency_key,
+            sensitive_content_policy=request.sensitive_content_policy,
             trace_id=request.trace_id,
         )
         if not created:
@@ -141,11 +148,7 @@ class KnowledgeIngestionPipeline:
             self.repository.transition(
                 request.tenant_id, job.job_id, IngestionState.STORED
             )
-            return self._process_stored(
-                job=self.repository.get_job(request.tenant_id, job.job_id),
-                document=document,
-                sensitive_content_policy=request.sensitive_content_policy,
-            )
+            return self.repository.get_job(request.tenant_id, job.job_id)
         except (ProcessingError, KnowledgeError) as exc:
             return self._record_failure(
                 tenant_id=request.tenant_id,
@@ -153,18 +156,80 @@ class KnowledgeIngestionPipeline:
                 error=exc,
             )
 
-    def retry(self, tenant_id: str, job_id: str) -> IngestionJob:
+    def process_staged(self, tenant_id: str, job_id: str) -> IngestionJob:
+        job = self.repository.get_job(tenant_id, job_id)
+        if job.state != IngestionState.STORED:
+            return job
+        try:
+            document = self.repository.get_document(
+                tenant_id, job.document_id, job.document_version
+            )
+            source_data = self.object_store.get(
+                tenant_id=tenant_id,
+                object_key=document.object_key,
+            )
+            document = replace(
+                document,
+                safe_file=replace(document.safe_file, data=source_data),
+            )
+            return self._process_stored(
+                job=job,
+                document=document,
+                sensitive_content_policy=job.sensitive_content_policy,
+            )
+        except (ProcessingError, KnowledgeError) as exc:
+            return self._record_failure(
+                tenant_id=tenant_id,
+                job_id=job_id,
+                error=exc,
+            )
+
+    def retry(
+        self,
+        tenant_id: str,
+        job_id: str,
+        *,
+        idempotency_key: str,
+    ) -> IngestionJob:
         job = self.repository.get_job(tenant_id, job_id)
         if job.state != IngestionState.FAILED:
-            raise KnowledgeError(
-                "INVALID_STATE_TRANSITION", "only failed jobs can be retried"
+            retry_job, started = self.repository.begin_retry(
+                tenant_id=tenant_id,
+                job_id=job_id,
+                idempotency_key=idempotency_key,
+                target_state=IngestionState.INDEXING,
             )
-        self.repository.increment_attempt(tenant_id, job_id)
+            if not started:
+                return retry_job
+            raise KnowledgeError(
+                "INVALID_STATE_TRANSITION",
+                "retry command entered an unexpected state",
+            )
+        if job.failure_stage == IngestionState.INDEXING:
+            target_state = IngestionState.INDEXING
+        elif job.failure_stage in {
+            IngestionState.STORED,
+            IngestionState.PARSING,
+            IngestionState.PARSED,
+            IngestionState.CHUNKING,
+            IngestionState.CHUNKED,
+        }:
+            target_state = IngestionState.STORED
+        else:
+            raise KnowledgeError(
+                "INVALID_STATE_TRANSITION",
+                "failure occurred before the durable source was stored",
+            )
+        retry_job, started = self.repository.begin_retry(
+            tenant_id=tenant_id,
+            job_id=job_id,
+            idempotency_key=idempotency_key,
+            target_state=target_state,
+        )
+        if not started:
+            return retry_job
         try:
             if job.failure_stage == IngestionState.INDEXING:
-                self.repository.transition(
-                    tenant_id, job_id, IngestionState.INDEXING
-                )
                 return self._index_and_publish(
                     self.repository.get_job(tenant_id, job_id)
                 )
@@ -179,11 +244,10 @@ class KnowledgeIngestionPipeline:
                 document,
                 safe_file=replace(document.safe_file, data=source_data),
             )
-            self.repository.transition(tenant_id, job_id, IngestionState.STORED)
             return self._process_stored(
                 job=self.repository.get_job(tenant_id, job_id),
                 document=document,
-                sensitive_content_policy="reject",
+                sensitive_content_policy=job.sensitive_content_policy,
             )
         except (ProcessingError, KnowledgeError) as exc:
             return self._record_failure(
@@ -366,10 +430,16 @@ class KnowledgeIngestionPipeline:
         parsed: ParsedDocument,
         policy: str,
     ) -> ParsedDocument:
+        sensitive_values = tuple(region.text for region in parsed.regions) + tuple(
+            cell
+            for table in parsed.tables
+            for row in table.cells
+            for cell in row
+        )
         matched = any(
-            pattern.search(region.text)
+            pattern.search(value)
             for pattern in SENSITIVE_PATTERNS
-            for region in parsed.regions
+            for value in sensitive_values
         )
         if not matched:
             return parsed
@@ -380,11 +450,26 @@ class KnowledgeIngestionPipeline:
             )
         regions: list[Region] = []
         for region in parsed.regions:
-            text = region.text
-            for pattern in SENSITIVE_PATTERNS:
-                text = pattern.sub("[REDACTED]", text)
-            regions.append(replace(region, text=text))
-        return replace(parsed, regions=tuple(regions))
+            regions.append(replace(region, text=_redact_sensitive(region.text)))
+        tables = tuple(
+            replace(
+                table,
+                cells=tuple(
+                    tuple(_redact_sensitive(cell) for cell in row)
+                    for row in table.cells
+                ),
+                normalized_text=_redact_sensitive(table.normalized_text),
+            )
+            for table in parsed.tables
+        )
+        return replace(parsed, regions=tuple(regions), tables=tables)
+
+
+def _redact_sensitive(value: str) -> str:
+    redacted = value
+    for pattern in SENSITIVE_PATTERNS:
+        redacted = pattern.sub("[REDACTED]", redacted)
+    return redacted
 
 
 class OutboxPublisher:
